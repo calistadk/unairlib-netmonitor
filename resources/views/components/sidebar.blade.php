@@ -4,11 +4,36 @@
         UNAIR LIB NetMonitor
     </h2>
 
-    <ul class="space-y-4">
-        <li>Dashboard</li>
-        <li>Monitoring</li>
-        <li>Perangkat</li>
-        <li>Log Aktivitas</li>
+    <ul class="space-y-6 pl-4 text-lg">
+
+        <li>
+            <a href="/dashboard"
+               class="block {{ request()->is('dashboard') ? 'text-[#EAB308] font-semibold' : 'hover:text-[#EAB308]' }}">
+                Dashboard
+            </a>
+        </li>
+
+        <li>
+            <a href="/monitoring"
+               class="block {{ request()->is('monitoring') ? 'text-[#EAB308] font-semibold' : 'hover:text-[#EAB308]' }}">
+                Monitoring
+            </a>
+        </li>
+
+        <li>
+            <a href="/perangkat"
+               class="block {{ request()->is('perangkat') ? 'text-[#EAB308] font-semibold' : 'hover:text-[#EAB308]' }}">
+                Perangkat
+            </a>
+        </li>
+
+        <li>
+            <a href="/log"
+               class="block {{ request()->is('log') ? 'text-[#EAB308] font-semibold' : 'hover:text-[#EAB308]' }}">
+                Log Aktivitas
+            </a>
+        </li>
+
     </ul>
 
 </aside>

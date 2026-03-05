@@ -2,9 +2,25 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::view('/login', 'login');
-Route::view('/dashboard', 'dashboard');
-Route::view('/perangkat', 'perangkat');
+Route::get('/login', function () {
+    return view('login');
+})->name('login');
+
+Route::get('/dashboard', function () {
+    return view('dashboard');
+});
+
+Route::get('/monitoring', function () {
+    return view('monitoring');
+});
+
+Route::get('/perangkat', function () {
+    return view('perangkat');
+});
+
+Route::get('/log', function () {
+    return view('log');
+});
 Route::view('/tambah-perangkat', 'tambahperangkat');
 Route::post('/tambah-perangkat', function (Request $request) {
     // sementara belum simpan DB
