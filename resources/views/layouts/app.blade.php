@@ -7,18 +7,18 @@
     @vite('resources/css/app.css')
 </head>
 
-<body class="bg-gray-100">
+<body class="bg-gray-100 h-screen flex flex-col overflow-hidden">
 
     {{-- HEADER --}}
     @include('components.header')
 
-    <div class="flex">
+    <div class="flex flex-1 overflow-hidden">
 
         {{-- SIDEBAR --}}
         @include('components.sidebar')
 
         {{-- CONTENT --}}
-        <main class="flex-1 p-8">
+        <main class="flex-1 p-8 overflow-y-auto">
             @yield('content')
         </main>
 

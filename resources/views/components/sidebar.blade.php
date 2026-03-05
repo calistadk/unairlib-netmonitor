@@ -1,4 +1,4 @@
-<aside class="w-64 bg-[#0F4C8A] text-white min-h-screen p-6">
+<aside class="w-64 bg-[#0F4C8A] text-white min-h-screen p-6 sticky top-0 self-start h-screen overflow-y-auto">
 
     <h2 class="text-xl font-bold mb-10">
         UNAIR LIB NetMonitor

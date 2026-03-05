@@ -1,4 +1,4 @@
-<header class="bg-white shadow flex justify-between items-center px-6 py-3">
+<header class="bg-white shadow flex justify-between items-center px-6 py-3 sticky top-0 z-50">
 
     <!-- Logo -->
     <div class="flex items-center gap-3">
@@ -26,7 +26,7 @@
 
             <!-- Notification Badge -->
             <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-1 rounded-full">
-        
+                12
             </span>
 
         </div>
