@@ -4,7 +4,7 @@
 
 <!-- ================= TITLE ================= -->
 <h2 class="text-3xl font-bold text-[#243B7C] mb-6">
-    Riwayat Log Aktivitas
+    Activity Log History
 </h2>
 
 <!-- ================= SEARCH & FILTER ================= -->
@@ -14,7 +14,7 @@
     <input
         type="text"
         id="searchInput"
-        placeholder="Cari perangkat atau aktivitas"
+        placeholder="Search device or activity"
         onkeyup="filterLog()"
         class="w-[480px] px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
     />
@@ -24,7 +24,7 @@
         id="filterTanggal"
         onchange="filterLog()"
         class="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer">
-        <option value="">Semua Tanggal</option>
+        <option value="">All Dates</option>
         <option value="12-02-2026">12-02-2026</option>
         <option value="11-02-2026">11-02-2026</option>
         <option value="10-02-2026">10-02-2026</option>
@@ -40,10 +40,10 @@
 
             <thead class="text-[#243B7C] font-semibold border-b border-gray-200">
                 <tr>
-                    <th class="px-6 py-4 text-left">Waktu</th>
-                    <th class="px-6 py-4 text-left">ID Perangkat</th>
-                    <th class="px-6 py-4 text-left">Jenis Aktivitas</th>
-                    <th class="px-6 py-4 text-left">Detail</th>
+                    <th class="px-6 py-4 text-left">Time</th>
+                    <th class="px-6 py-4 text-left">Device ID</th>
+                    <th class="px-6 py-4 text-left">Types of Activities</th>
+                    <th class="px-6 py-4 text-left">Details</th>
                     <th class="px-6 py-4 text-left">User</th>
                 </tr>
             </thead>
@@ -142,7 +142,7 @@
 
         <!-- Empty State -->
         <div id="emptyState" class="hidden py-12 text-center text-gray-400 text-sm">
-            Tidak ada log yang sesuai dengan pencarian.
+            No logs match the search.
         </div>
 
     </div>

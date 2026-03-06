@@ -4,7 +4,7 @@
 
 <!-- ================= TITLE ================= -->
 <h2 class="text-3xl font-bold text-[#243B7C] mb-8">
-    Edit Perangkat
+    Edit Device
 </h2>
 
 <!-- ================= FORM CONTAINER ================= -->
@@ -21,7 +21,7 @@
                 <!-- ID PERANGKAT -->
                 <div>
                     <label class="block text-sm text-gray-700 mb-1">
-                        ID Perangkat
+                        Device ID
                     </label>
                     <input type="text"
                         value="RTR-01"
@@ -41,10 +41,10 @@
                 <!-- JENIS -->
                 <div>
                     <label class="block text-sm font-medium mb-1">
-                        Jenis
+                        Type
                     </label>
                     <select class="w-full border rounded-lg px-4 py-2">
-                        <option value="">Pilih jenis perangkat</option>
+                        <option value="">Select device type</option>
                         <option value="Wi-Fi">Wi-Fi</option>
                         <option value="Router" selected>Router</option>
                         <option value="Hub">Hub</option>
@@ -67,7 +67,7 @@
                 <!-- MEREK & MODEL -->
                 <div>
                     <label class="block text-sm text-gray-700 mb-1">
-                        Merek & Model
+                        Brand & Model
                     </label>
                     <input type="text"
                         value="Cisco ISR 4321"
@@ -77,7 +77,7 @@
                 <!-- LOKASI -->
                 <div>
                     <label class="block text-sm text-gray-700 mb-1">
-                        Lokasi (Gedung, Ruangan, Rack)
+                        Location (Building, Room, Rack)
                     </label>
                     <input type="text"
                         value="MOVIO"
@@ -94,11 +94,10 @@
                         class="w-full px-4 py-2 border rounded-lg">
                 </div>
 
-
                 <!-- TANGGAL PEMBELIAN -->
                 <div>
                     <label class="block text-sm text-gray-700 mb-1">
-                        Tanggal Pembelian
+                        Purchase Date
                     </label>
                     <input type="date"
                         value="2020-12-01"
@@ -108,7 +107,7 @@
                 <!-- MASA GARANSI -->
                 <div>
                     <label class="block text-sm text-gray-700 mb-1">
-                        Masa Garansi
+                        Warranty Expiry
                     </label>
                     <input type="date"
                         value="2026-12-01"
@@ -121,12 +120,12 @@
             <div class="flex justify-end gap-4 mt-10">
                 <a href="/perangkat"
                    class="px-6 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold">
-                    Batal
+                    Cancel
                 </a>
 
                 <button type="button"
                         class="px-6 py-2 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-800">
-                    Simpan Perubahan
+                    Save Changes
                 </button>
             </div>
 

@@ -15,7 +15,7 @@
 
         <li>
             <a href="/monitoring"
-               class="block {{ request()->is('monitoring') ? 'text-[#EAB308] font-semibold' : 'hover:text-[#EAB308]' }}">
+            class="block {{ request()->is('monitoring*') ? 'text-[#EAB308] font-semibold' : 'hover:text-[#EAB308]' }}">
                 Monitoring
             </a>
         </li>
@@ -23,14 +23,14 @@
         <li>
             <a href="/perangkat"
                class="block {{ request()->is('perangkat') ? 'text-[#EAB308] font-semibold' : 'hover:text-[#EAB308]' }}">
-                Perangkat
+                Devices
             </a>
         </li>
 
         <li>
             <a href="/log"
                class="block {{ request()->is('log') ? 'text-[#EAB308] font-semibold' : 'hover:text-[#EAB308]' }}">
-                Log Aktivitas
+                History & Activity Log
             </a>
         </li>
 
