@@ -24,44 +24,78 @@
 
             <tbody class="divide-y divide-gray-100">
 
-                @php
-                    $perangkat = [
-                        ['id' => 'RTR-01', 'nama' => 'Core Router',    'jenis' => 'Router', 'status' => 'Online'],
-                        ['id' => 'SWT-02', 'nama' => 'Switch Lt 1',    'jenis' => 'Switch', 'status' => 'Offline'],
-                        ['id' => 'SRV-03', 'nama' => 'Server Lt 1',    'jenis' => 'Server', 'status' => 'Online'],
-                        ['id' => 'AP-04',  'nama' => 'Access Point 1', 'jenis' => 'AP',     'status' => 'Online'],
-                        ['id' => 'SWT-05', 'nama' => 'Switch Lt 2',    'jenis' => 'Switch', 'status' => 'Online'],
-                    ];
-                @endphp
-
                 @foreach ($perangkat as $index => $item)
-                    <tr class="hover:bg-gray-50 transition">
-                        <td class="px-6 py-4 text-gray-700">{{ $item['id'] }}</td>
-                        <td class="px-6 py-4 text-gray-800">{{ $item['nama'] }}</td>
-                        <td class="px-6 py-4 text-gray-600">{{ $item['jenis'] }}</td>
 
-                        <td class="px-6 py-4">
-                            @if ($item['status'] === 'Online')
-                                <span class="text-green-500 font-medium">Online</span>
-                            @else
-                                <span class="text-red-500 font-medium">Offline</span>
-                            @endif
-                        </td>
+                <tr class="hover:bg-gray-50 transition">
 
-                        <td class="px-6 py-4">
-                            <button
-                                onclick="toggleDetail('detail-{{ $index }}', '{{ $item['nama'] }}')"
-                                class="bg-[#1a1a2e] text-white text-xs px-4 py-2 rounded-lg hover:bg-[#243B7C] transition">
-                                Detail
-                            </button>
-                        </td>
-                    </tr>
+                    <td class="px-6 py-4 text-gray-700">
+                        {{ $item['id'] }}
+                    </td>
+
+                    <td class="px-6 py-4 text-gray-800">
+                        {{ $item['nama'] }}
+                    </td>
+
+                    <td class="px-6 py-4 text-gray-600">
+                        {{ $item['jenis'] }}
+                    </td>
+
+                    <td class="px-6 py-4">
+
+                        @if ($item['status'] === 'Online')
+                            <span class="text-green-500 font-medium">
+                                Online
+                            </span>
+
+                        @elseif ($item['status'] === 'Offline')
+                            <span class="text-red-500 font-medium">
+                                Offline
+                            </span>
+
+                        @else
+                            <span class="text-yellow-500 font-medium">
+                                Unknown
+                            </span>
+                        @endif
+
+                    </td>
+
+                    <td class="px-6 py-4">
+                        <button
+                            onclick="toggleDetail('detail-{{ $index }}')"
+                            class="bg-[#1a1a2e] text-white text-xs px-4 py-2 rounded-lg hover:bg-[#243B7C] transition">
+                            Detail
+                        </button>
+                    </td>
+
+                </tr>
+
                 @endforeach
 
             </tbody>
         </table>
     </div>
 </div>
+
+<!-- ================= DETAIL SECTION ================= -->
+
+@foreach ($perangkat as $index => $item)
+<div id="detail-{{ $index }}" class="hidden bg-white rounded-xl shadow-sm p-6 mb-6">
+    <h3 class="text-lg font-semibold text-[#243B7C] mb-4">
+        Detail Perangkat: {{ $item['nama'] }}
+    </h3>
+
+    <p class="text-gray-600">
+        Status perangkat diambil langsung dari Zabbix (availability).
+    </p>
+
+    <p class="text-gray-600 mt-2">
+        Status saat ini:
+        <b>{{ $item['status'] }}</b>
+    </p>
+</div>
+@endforeach
+
 
 <!-- ================= DETAIL CHARTS (hidden by default) ================= -->
 @foreach ($perangkat as $index => $item)
@@ -189,6 +223,17 @@
         );
 
         initializedCharts[id] = true;
+    }
+
+
+    function toggleDetail(id){
+        const el = document.getElementById(id)
+        if (el.classList.contains('hidden')){
+            el.classList.remove('hidden')
+        }
+        else{
+            el.classList.add('hidden')
+        }
     }
 </script>
 

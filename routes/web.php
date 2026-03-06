@@ -100,3 +100,74 @@ Route::put('/perangkat/{id}', function (Request $request, $id) {
         ->with('success', 'Perangkat berhasil diperbarui (dummy)');
 
 })->name('perangkat.update');
+
+
+use Illuminate\Support\Facades\Http;
+
+Route::get('/monitoring', function () {
+
+    $url = "http://210.57.222.125:8481/zabbix/api_jsonrpc.php";
+
+    /*
+    ================= LOGIN ZABBIX =================
+    */
+    $login = Http::post($url, [
+        "jsonrpc" => "2.0",
+        "method" => "user.login",
+        "params" => [
+            "username" => "Admin",
+            "password" => "zabbix"
+        ],
+        "id" => 1
+    ]);
+
+    $auth = $login->json()['result'] ?? null;
+
+    if (!$auth) {
+        return view('monitoring', ['perangkat' => []]);
+    }
+
+    /*
+    ================= AMBIL HOST + AVAILABILITY =================
+    */
+    $hosts = Http::post($url, [
+        "jsonrpc" => "2.0",
+        "method" => "host.get",
+        "params" => [
+            "output" => ["hostid", "host"],
+            "selectInterfaces" => ["ip", "available"]
+        ],
+        "auth" => $auth,
+        "id" => 2
+    ]);
+
+    $data = $hosts->json()['result'] ?? [];
+
+    /*
+    ================= FORMAT DATA =================
+    */
+    $perangkat = [];
+
+    foreach ($data as $h) {
+
+        $availability = $h['interfaces'][0]['available'] ?? 0;
+
+        if ($availability == 1) {
+            $status = "Online";
+        } elseif ($availability == 2) {
+            $status = "Offline";
+        } else {
+            $status = "Unknown";
+        }
+
+        $perangkat[] = [
+            "id" => $h["hostid"],
+            "nama" => $h["host"],
+            "jenis" => "Network Device",
+            "status" => $status
+        ];
+    }
+
+    return view('monitoring', compact('perangkat'));
+
+});

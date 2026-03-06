@@ -26,14 +26,6 @@
         <option>Laptop</option>
     </select>
 
-    <select class="px-4 py-2 border border-gray-300 rounded-lg">
-        <option>Semua Status</option>
-        <option>Tersedia</option>
-        <option>Tidak Tersedia</option>
-        <option>Maintenance</option>
-        <option>Cadangan</option>
-    </select>
-
     <a href="{{ url('/tambah-perangkat') }}"
         class="ml-auto inline-block bg-blue-700 hover:bg-blue-800 text-white font-semibold px-6 py-2 rounded-lg">
         + Tambah Perangkat
@@ -54,7 +46,6 @@
                     <th class="p-4 text-left">IP</th>
                     <th class="p-4 text-left">MAC</th>
                     <th class="p-4 text-left">Lokasi</th>
-                    <th class="p-4 text-left">Status</th>
                     <th class="p-4 text-left">Tanggal Pembelian</th>
                     <th class="p-4 text-left">Garansi</th>
                     <th class="p-4 text-left"></th>
@@ -72,11 +63,6 @@
                     <td class="p-4">192.168.1.1</td>
                     <td class="p-4">AA:BB:CC</td>
                     <td class="p-4">MOVIO</td>
-                    <td class="p-4">
-                        <span class="inline-flex items-center bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap">
-                            Tersedia
-                        </span>
-                    </td>
                     <td class="p-4">01-12-2020</td>
                     <td class="p-4">01-12-2026</td>
                     <td class="p-4 flex gap-3 text-gray-600">
@@ -127,11 +113,6 @@
                     <td class="p-4">192.168.1.10</td>
                     <td class="p-4">DD:EE:FF</td>
                     <td class="p-4">LIBCAFE</td>
-                    <td class="p-4">
-                        <span class="inline-flex items-center bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap">
-                            Tidak Tersedia
-                        </span>
-                    </td>
                     <td class="p-4">10-05-2019</td>
                     <td class="p-4">10-05-2025</td>
                     <td class="p-4 flex gap-3 text-gray-600">

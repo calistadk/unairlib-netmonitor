@@ -90,20 +90,6 @@
                         class="w-full px-4 py-2 border rounded-lg">
                 </div>
 
-                <!-- STATUS -->
-                <div>
-                    <label class="block text-sm text-gray-700 mb-1">
-                        Status
-                    </label>
-                    <select name="status"
-                        class="w-full px-4 py-2 border rounded-lg">
-                        <option value="">Pilih status perangkat</option>
-                        <option value="Tersedia">Tersedia</option>
-                        <option value="Tidak Tersedia">Tidak Tersedia</option>
-                        <option value="Maintenance">Maintenance</option>
-                        <option value="Cadangan">Cadangan</option>
-                    </select>
-                </div>
 
                 <!-- TANGGAL PEMBELIAN -->
                 <div>
