@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\Request;
+use App\Http\Controllers\DeviceController;
+use App\Http\Controllers\ActivityLogController;
 
 define('ZABBIX_URL',  "http://210.57.222.125:8481/zabbix");
 define('ZABBIX_USER', "Admin");
@@ -90,7 +92,6 @@ function getHostData(string $hostid, string $auth): ?array
         default => '-',
     };
 
-    // Ambil graph
     $graphRes = Http::post(ZABBIX_API, [
         "jsonrpc" => "2.0",
         "method"  => "graph.get",
@@ -226,7 +227,7 @@ Route::get('/dashboard', function () {
 });
 
 // ============================================================
-// MONITORING — daftar semua host
+// MONITORING 
 // ============================================================
 Route::get('/monitoring', function () {
 
@@ -284,7 +285,7 @@ Route::get('/monitoring', function () {
 });
 
 // ============================================================
-// MONITORING DETAIL — halaman graph per host
+// MONITORING DETAIL 
 // ============================================================
 Route::get('/monitoring/{hostid}', function (string $hostid) {
 
@@ -352,46 +353,17 @@ Route::get('/zabbix-graph', function (Request $request) {
 });
 
 // ============================================================
-// PERANGKAT
+// DEVICES 
 // ============================================================
-Route::get('/perangkat', function () {
-    $devices = [
-        (object)['id' => 1, 'id_perangkat' => 'RTR-01', 'jenis' => 'Router', 'status' => 'Tersedia'],
-        (object)['id' => 2, 'id_perangkat' => 'WIFI-02', 'jenis' => 'Wi-Fi', 'status' => 'Maintenance'],
-    ];
-    return view('perangkat', compact('devices'));
-})->name('perangkat.index');
-
-Route::view('/tambah-perangkat', 'tambahperangkat');
-
-Route::post('/tambah-perangkat', function (Request $request) {
-    return redirect('/perangkat');
-});
-
-Route::get('/perangkat/{id}/edit', function ($id) {
-    $device = (object)[
-        'id'                => $id,
-        'id_perangkat'      => 'RTR-01',
-        'jenis'             => 'Router',
-        'merek_model'       => 'Cisco ISR 4321',
-        'serial_number'     => 'FTX12345',
-        'ip_address'        => '192.168.1.1',
-        'mac_address'       => 'AA:BB:CC',
-        'lokasi'            => 'MOVIO',
-        'status'            => 'Tersedia',
-        'tanggal_pembelian' => '2020-12-01',
-        'masa_garansi'      => '2026-12-01',
-    ];
-    return view('editperangkat', compact('device'));
-})->name('perangkat.edit');
-
-Route::put('/perangkat/{id}', function (Request $request, $id) {
-    return redirect('/perangkat')->with('success', 'Perangkat berhasil diperbarui');
-})->name('perangkat.update');
+Route::get('/perangkat',              [DeviceController::class, 'index'])->name('perangkat.index');
+Route::get('/tambah-perangkat',       [DeviceController::class, 'create'])->name('perangkat.create');
+Route::post('/tambah-perangkat',      [DeviceController::class, 'store'])->name('perangkat.store');
+Route::get('/perangkat/{id}/edit',    [DeviceController::class, 'edit'])->name('perangkat.edit');
+Route::put('/perangkat/{id}',         [DeviceController::class, 'update'])->name('perangkat.update');
+Route::delete('/perangkat/{id}',      [DeviceController::class, 'destroy'])->name('perangkat.destroy');
 
 // ============================================================
 // LOG AKTIVITAS
 // ============================================================
-Route::get('/log', function () {
-    return view('log');
-});
+Route::get('/log',  [ActivityLogController::class, 'index'])->name('log.index');
+Route::post('/log', [ActivityLogController::class, 'store'])->name('log.store');
