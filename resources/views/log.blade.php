@@ -20,7 +20,7 @@
     <input
         type="text"
         id="searchInput"
-        placeholder="Search device or activity"
+        placeholder="Search"
         onkeyup="filterLog()"
         class="w-[480px] px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
     />
@@ -55,10 +55,10 @@
 
 <!-- ================= LOG TABLE ================= -->
 <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-    <div class="overflow-x-auto">
-        <table class="w-full text-sm">
+<div class="overflow-x-auto overflow-y-auto max-h-[70vh]">
+<table class="w-full text-sm border border-gray-200" id="deviceTable">
 
-            <thead class="text-[#243B7C] font-semibold border-b border-gray-200">
+            <thead class="text-[#243B7C] font-semibold border-b-2 border-gray-300 sticky top-0 z-10 bg-white">
                 <tr>
                     <th class="px-6 py-4 text-left">Time</th>
                     <th class="px-6 py-4 text-left">Device ID</th>
@@ -68,7 +68,7 @@
                 </tr>
             </thead>
 
-            <tbody class="divide-y divide-gray-100" id="logBody">
+            <tbody id="logBody" class="divide-y divide-gray-300">
 
                 @php
                     $badgeClass = [

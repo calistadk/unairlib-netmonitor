@@ -4,7 +4,6 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\Request;
-use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\ActivityLogController;
 
 define('ZABBIX_URL',  "http://210.57.222.125:8481/zabbix");
@@ -15,40 +14,51 @@ define('ZABBIX_API',  ZABBIX_URL . "/api_jsonrpc.php");
 function getZabbixToken(): ?string
 {
     return Cache::remember('zabbix_api_token', 1500, function () {
-        $res = Http::post(ZABBIX_API, [
-            "jsonrpc" => "2.0",
-            "method"  => "user.login",
-            "params"  => ["username" => ZABBIX_USER, "password" => ZABBIX_PASS],
-            "id"      => 1,
-        ]);
-        return $res->json()['result'] ?? null;
+        try {
+            $res = Http::timeout(5)->post(ZABBIX_API, [
+                "jsonrpc" => "2.0",
+                "method"  => "user.login",
+                "params"  => ["username" => ZABBIX_USER, "password" => ZABBIX_PASS],
+                "id"      => 1,
+            ]);
+            return $res->json()['result'] ?? null;
+        } catch (\Exception $e) {
+            return null;
+        }
     });
 }
 
 function getZabbixSessionCookie(): ?string
 {
     return Cache::remember('zabbix_web_cookie', 1500, function () {
-        $jar    = new \GuzzleHttp\Cookie\CookieJar();
-        $client = new \GuzzleHttp\Client([
-            'cookies'         => $jar,
-            'allow_redirects' => true,
-        ]);
+        try {
+            $jar    = new \GuzzleHttp\Cookie\CookieJar();
+            $client = new \GuzzleHttp\Client([
+                'cookies'         => $jar,
+                'allow_redirects' => true,
+                'timeout'         => 5,
+                'connect_timeout' => 5,
+            ]);
 
-        $client->post(ZABBIX_URL . "/index.php", [
-            'form_params' => [
-                'name'     => ZABBIX_USER,
-                'password' => ZABBIX_PASS,
-                'enter'    => 'Sign in',
-            ],
-        ]);
+            $client->post(ZABBIX_URL . "/index.php", [
+                'form_params' => [
+                    'name'     => ZABBIX_USER,
+                    'password' => ZABBIX_PASS,
+                    'enter'    => 'Sign in',
+                ],
+            ]);
 
-        foreach ($jar->toArray() as $cookie) {
-            if ($cookie['Name'] === 'zbx_session') {
-                return 'zbx_session=' . $cookie['Value'];
+            foreach ($jar->toArray() as $cookie) {
+                if ($cookie['Name'] === 'zbx_session') {
+                    return 'zbx_session=' . $cookie['Value'];
+                }
             }
-        }
 
-        return null;
+            return null;
+
+        } catch (\Exception $e) {
+            return null;
+        }
     });
 }
 
@@ -227,7 +237,7 @@ Route::get('/dashboard', function () {
 });
 
 // ============================================================
-// MONITORING 
+// MONITORING — daftar semua host
 // ============================================================
 Route::get('/monitoring', function () {
 
@@ -285,7 +295,7 @@ Route::get('/monitoring', function () {
 });
 
 // ============================================================
-// MONITORING DETAIL 
+// MONITORING DETAIL — halaman graph per host
 // ============================================================
 Route::get('/monitoring/{hostid}', function (string $hostid) {
 
@@ -353,17 +363,87 @@ Route::get('/zabbix-graph', function (Request $request) {
 });
 
 // ============================================================
-// DEVICES 
+// DEVICES — semua dari Zabbix (inventory + interface + groups)
 // ============================================================
-Route::get('/perangkat',              [DeviceController::class, 'index'])->name('perangkat.index');
-Route::get('/tambah-perangkat',       [DeviceController::class, 'create'])->name('perangkat.create');
-Route::post('/tambah-perangkat',      [DeviceController::class, 'store'])->name('perangkat.store');
-Route::get('/perangkat/{id}/edit',    [DeviceController::class, 'edit'])->name('perangkat.edit');
-Route::put('/perangkat/{id}',         [DeviceController::class, 'update'])->name('perangkat.update');
-Route::delete('/perangkat/{id}',      [DeviceController::class, 'destroy'])->name('perangkat.destroy');
+Route::get('/perangkat', function () {
+
+    $auth = getZabbixToken();
+
+    if (!$auth) {
+        return view('perangkat', ['devices' => []]);
+    }
+
+    $res = Http::post(ZABBIX_API, [
+        "jsonrpc" => "2.0",
+        "method"  => "host.get",
+        "params"  => [
+            "output"           => ["hostid", "host"],
+            "selectInterfaces" => ["ip", "port", "type", "available"],
+            "selectGroups"     => ["name"],
+            "selectTags"       => ["tag", "value"],
+            "selectInventory"  => "extend",
+        ],
+        "auth" => $auth,
+        "id"   => 20,
+    ]);
+
+    $zbxHosts = $res->json()['result'] ?? [];
+    $devices  = [];
+
+    foreach ($zbxHosts as $h) {
+        $iface  = $h['interfaces'][0] ?? [];
+        $avail  = $iface['available'] ?? 0;
+        $inv    = is_array($h['inventory']) ? $h['inventory'] : [];
+        $groups = collect($h['groups'] ?? [])->pluck('name')->implode(', ');
+        $tags   = collect($h['tags'] ?? [])
+            ->map(fn($t) => $t['tag'] . ($t['value'] ? ': ' . $t['value'] : ''))
+            ->implode(', ');
+
+        $ifaceType = match((int)($iface['type'] ?? 0)) {
+            1 => 'ZBX', 2 => 'SNMP', 3 => 'IPMI', 4 => 'JMX', default => '-',
+        };
+
+        if ($avail == 1)     $status = 'Online';
+        elseif ($avail == 2) $status = 'Offline';
+        else                 $status = 'Unknown';
+
+        $devices[] = [
+            'hostid'     => $h['hostid'],
+            'host'       => $h['host'],
+            'ip'         => $iface['ip'] ?? '-',
+            'iface_type' => $ifaceType,
+            'status'     => $status,
+            'groups'     => $groups,
+            'tags'       => $tags,
+            'type'       => $inv['type'] ?? '',
+            'vendor'     => $inv['vendor'] ?? '',
+            'model'      => $inv['model'] ?? '',
+            'serial'     => $inv['serialno_a'] ?? '',
+            'mac'        => $inv['macaddress_a'] ?? '',
+            'os'         => $inv['os'] ?? '',
+            'location'   => $inv['location'] ?? '',
+            'asset_tag'  => $inv['asset_tag'] ?? '',
+            'hardware'   => $inv['hardware'] ?? '',
+            'notes'      => $inv['notes'] ?? '',
+        ];
+    }
+
+    return view('perangkat', compact('devices'));
+
+})->name('perangkat.index');
 
 // ============================================================
 // LOG AKTIVITAS
 // ============================================================
 Route::get('/log',  [ActivityLogController::class, 'index'])->name('log.index');
 Route::post('/log', [ActivityLogController::class, 'store'])->name('log.store');
+
+// ============================================================
+// MAINTENANCE
+// ============================================================
+use App\Http\Controllers\MaintenanceController;
+
+Route::get('/maintenance',           [MaintenanceController::class, 'index'])->name('maintenance.index');
+Route::post('/maintenance',          [MaintenanceController::class, 'store'])->name('maintenance.store');
+Route::post('/maintenance/{id}/done',[MaintenanceController::class, 'markDone'])->name('maintenance.done');
+Route::delete('/maintenance/{id}',   [MaintenanceController::class, 'destroy'])->name('maintenance.destroy');

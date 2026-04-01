@@ -15,15 +15,22 @@
 
         <li>
             <a href="/monitoring"
-            class="block {{ request()->is('monitoring*') ? 'text-[#EAB308] font-semibold' : 'hover:text-[#EAB308]' }}">
+               class="block {{ request()->is('monitoring*') ? 'text-[#EAB308] font-semibold' : 'hover:text-[#EAB308]' }}">
                 Monitoring
             </a>
         </li>
 
         <li>
             <a href="/perangkat"
-               class="block {{ request()->is('perangkat') ? 'text-[#EAB308] font-semibold' : 'hover:text-[#EAB308]' }}">
+               class="block {{ request()->is('perangkat*') ? 'text-[#EAB308] font-semibold' : 'hover:text-[#EAB308]' }}">
                 Devices
+            </a>
+        </li>
+
+        <li>
+            <a href="/maintenance"
+               class="block {{ request()->is('maintenance*') ? 'text-[#EAB308] font-semibold' : 'hover:text-[#EAB308]' }}">
+                Maintenance
             </a>
         </li>
 
