@@ -139,7 +139,6 @@ Route::get('/login',   [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login',  [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-// ── Redirect root ke dashboard ────────────────────────────
 Route::get('/', function () {
     return redirect('/dashboard');
 });
@@ -362,7 +361,7 @@ Route::middleware('auth')->group(function () {
         }
     });
 
-    // ── PERANGKAT (view — admin & user) ───────────────────────
+    // ── PERANGKAT ─────────────────────────────────────────────
     Route::get('/perangkat', function () {
 
         $auth = getZabbixToken();
@@ -430,7 +429,7 @@ Route::middleware('auth')->group(function () {
 
     })->name('perangkat.index');
 
-    // ── ZABBIX OPTIONS (groups & templates untuk dropdown) ────
+    // ── ZABBIX OPTIONS ────────────────────────────────────────
     Route::get('/zabbix/options', function () {
 
         $auth = getZabbixToken();
@@ -459,7 +458,7 @@ Route::middleware('auth')->group(function () {
 
     })->name('zabbix.options');
 
-    // ── ZABBIX HOST — get single host (untuk edit form) ───────
+    // ── ZABBIX HOST — get single (untuk edit form) ────────────
     Route::get('/zabbix/host/{id}', function (string $id) {
 
         $auth = getZabbixToken();
@@ -483,11 +482,8 @@ Route::middleware('auth')->group(function () {
 
     })->name('zabbix.host.show');
 
-    // ── LOG (view — admin & user) ──────────────────────────────
+    // ── LOG ───────────────────────────────────────────────────
     Route::get('/log', [ActivityLogController::class, 'index'])->name('log.index');
-
-    // ── MAINTENANCE (view — admin & user) ─────────────────────
-    Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance.index');
 
     // ── ADMIN ONLY ────────────────────────────────────────────
     Route::middleware('admin')->group(function () {
@@ -495,11 +491,14 @@ Route::middleware('auth')->group(function () {
         // Log
         Route::post('/log', [ActivityLogController::class, 'store'])->name('log.store');
 
-        // Maintenance
-        Route::post('/maintenance',           [MaintenanceController::class, 'store'])->name('maintenance.store');
-        Route::post('/maintenance/{id}/done', [MaintenanceController::class, 'markDone'])->name('maintenance.done');
-        Route::delete('/maintenance/{id}',    [MaintenanceController::class, 'destroy'])->name('maintenance.destroy');
-
+       // Maintenance (view — semua user login)
+Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance.index');
+ 
+// Maintenance (aksi — admin only)
+Route::middleware('admin')->group(function () {
+    Route::post('/maintenance',        [MaintenanceController::class, 'store'])->name('maintenance.store');
+    Route::delete('/maintenance/{id}', [MaintenanceController::class, 'destroy'])->name('maintenance.destroy');
+});
         // Zabbix Host — store
         Route::post('/zabbix/host', function (Request $request) {
 

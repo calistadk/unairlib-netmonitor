@@ -116,12 +116,6 @@
                               hover:bg-[#243B7C] transition inline-block">
                         Detail
                     </a>
-                    <!-- Add to Zabbix (pre-fill) -->
-                    <button onclick="openAddZabbix('{{ $item['interface'] }}', '{{ $item['nama'] }}')"
-                        class="text-[#243B7C] border border-[#243B7C] text-xs px-3 py-2 rounded-lg
-                               hover:bg-[#243B7C] hover:text-white transition">
-                        + Zabbix
-                    </button>
                     <!-- Hapus -->
                     <button onclick="confirmDelete('{{ $item['id'] }}', '{{ addslashes($item['nama']) }}')"
                         class="text-red-600 border border-red-300 text-xs px-3 py-2 rounded-lg

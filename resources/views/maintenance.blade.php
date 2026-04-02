@@ -14,7 +14,7 @@
 </div>
 @endif
 
-<!-- ================= PROGRESS HARI INI ================= -->
+<!-- ================= STATS ================= -->
 <div class="grid grid-cols-3 gap-6 mb-8">
 
     <div class="bg-white rounded-xl shadow-sm p-6 flex items-center gap-4">
@@ -24,8 +24,8 @@
             </svg>
         </div>
         <div>
-            <p class="text-sm text-gray-500">Today's Target</p>
-            <p class="text-2xl font-bold text-[#243B7C]">5 Devices</p>
+            <p class="text-sm text-gray-500">Total Devices</p>
+            <p class="text-2xl font-bold text-[#243B7C]">{{ count($zbxDevices) }}</p>
         </div>
     </div>
 
@@ -37,7 +37,7 @@
         </div>
         <div>
             <p class="text-sm text-gray-500">Done Today</p>
-            <p class="text-2xl font-bold text-green-600">{{ $doneToday }} / {{ $totalToday }}</p>
+            <p class="text-2xl font-bold text-green-600">{{ $doneToday }}</p>
         </div>
     </div>
 
@@ -48,260 +48,290 @@
             </svg>
         </div>
         <div>
-            <p class="text-sm text-gray-500">Remaining Today</p>
-            <p class="text-2xl font-bold text-yellow-600">{{ $totalToday - $doneToday }}</p>
+            <p class="text-sm text-gray-500">Belum Maintenance</p>
+            <p class="text-2xl font-bold text-yellow-600">{{ count($zbxDevices) - $doneToday }}</p>
         </div>
     </div>
 
 </div>
 
-<div class="grid grid-cols-3 gap-6">
+<!-- ================= DEVICE LIST ================= -->
+<div class="bg-white rounded-xl shadow-sm overflow-hidden">
 
-    <!-- ================= JADWAL HARI INI ================= -->
-    <div class="col-span-2">
+    <form id="maintenanceForm" action="{{ route('maintenance.store') }}" method="POST">
+        @csrf
+
+        {{-- Header --}}
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+            <div>
+                <h3 class="text-lg font-bold text-[#243B7C]">Device List</h3>
+                <p class="text-xs text-gray-400 mt-0.5">Centang device yang sudah selesai dimaintenance hari ini</p>
+            </div>
+
+            {{-- Search --}}
+            <div class="flex items-center gap-3">
+                <div class="relative">
+                    <input type="text" id="searchInput" placeholder="Cari device..."
+                        class="pl-8 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 w-52">
+                    <svg class="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        {{-- Table --}}
+        <div class="overflow-x-auto overflow-y-auto max-h-[55vh]">
+            <table class="w-full text-sm">
+                <thead class="text-[#243B7C] font-semibold border-b-2 border-gray-200 sticky top-0 z-10 bg-white">
+                    <tr>
+                        <th class="px-6 py-3 text-left w-10">
+                            <input type="checkbox" id="checkAll"
+                                class="w-4 h-4 cursor-pointer accent-blue-700"
+                                title="Pilih semua">
+                        </th>
+                        <th class="px-6 py-3 text-left whitespace-nowrap">Device Name</th>
+                        <th class="px-6 py-3 text-left whitespace-nowrap">IP Address</th>
+                        <th class="px-6 py-3 text-left whitespace-nowrap">Status</th>
+                        <th class="px-6 py-3 text-left whitespace-nowrap">Last Maintenance</th>
+                        <th class="px-6 py-3 text-left whitespace-nowrap">Done By</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100" id="deviceTableBody">
+                    @forelse ($zbxDevices as $device)
+                    @php
+                        $lastMaint = $lastMaintenanceMap[$device['hostid']] ?? null;
+                        $isDoneToday = $doneTodayMap[$device['hostid']] ?? false;
+                    @endphp
+                    <tr class="device-row hover:bg-gray-50 transition {{ $isDoneToday ? 'bg-green-50' : '' }}"
+                        data-name="{{ strtolower($device['host']) }}">
+
+                        {{-- Checkbox --}}
+                        <td class="px-6 py-3">
+                            <input type="checkbox"
+                                name="devices[]"
+                                value="{{ $device['hostid'] }}"
+                                data-name="{{ $device['host'] }}"
+                                class="device-cb w-4 h-4 cursor-pointer accent-blue-700
+                                       {{ $isDoneToday ? 'opacity-40 cursor-not-allowed' : '' }}"
+                                {{ $isDoneToday ? 'disabled' : '' }}>
+                        </td>
+
+                        {{-- Device Name --}}
+                        <td class="px-6 py-3 font-medium text-gray-800 whitespace-nowrap">
+                            {{ $device['host'] }}
+                            @if($isDoneToday)
+                                <span class="ml-2 px-1.5 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700">
+                                    ✓ Done
+                                </span>
+                            @endif
+                        </td>
+
+                        {{-- IP --}}
+                        <td class="px-6 py-3 text-gray-600 whitespace-nowrap font-mono text-xs">
+                            {{ $device['ip'] }}
+                        </td>
+
+                        {{-- Status Zabbix --}}
+                        <td class="px-6 py-3 whitespace-nowrap">
+                            @if($device['status'] === 'Online')
+                                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
+                                    Online
+                                </span>
+                            @elseif($device['status'] === 'Offline')
+                                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-600">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-red-500 inline-block"></span>
+                                    Offline
+                                </span>
+                            @else
+                                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block"></span>
+                                    Unknown
+                                </span>
+                            @endif
+                        </td>
+
+                        {{-- Last Maintenance --}}
+                        <td class="px-6 py-3 text-gray-600 whitespace-nowrap text-xs">
+                            @if($lastMaint)
+                                <span>{{ $lastMaint->done_at ? $lastMaint->done_at->format('d M Y, H:i') : $lastMaint->scheduled_date->format('d M Y') }}</span>
+                                <span class="block text-gray-400 mt-0.5">
+                                    {{ $lastMaint->done_at ? $lastMaint->done_at->diffForHumans() : '-' }}
+                                </span>
+                            @else
+                                <span class="text-gray-400">Belum pernah</span>
+                            @endif
+                        </td>
+
+                        {{-- Done By --}}
+                        <td class="px-6 py-3 text-gray-600 whitespace-nowrap text-xs">
+                            @if($isDoneToday && $lastMaint)
+                                {{ $lastMaint->doneBy->name ?? 'System' }}
+                                <span class="block text-gray-400">{{ $lastMaint->done_at?->format('H:i') }}</span>
+                            @else
+                                <span class="text-gray-300">—</span>
+                            @endif
+                        </td>
+
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="6" class="px-6 py-16 text-center text-gray-400 text-sm">
+                            <svg class="w-10 h-10 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                            </svg>
+                            Tidak ada device. Pastikan Zabbix terhubung.
+                        </td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        {{-- Action Bar --}}
+        @if(auth()->user()->isAdmin())
+        <div class="flex items-center justify-between px-6 py-3 bg-gray-50 border-t border-gray-200">
+            <div class="text-sm text-gray-500">
+                Dipilih: <span id="selCount" class="font-semibold text-gray-800">0</span> device
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="clearSelection()"
+                    class="text-xs px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-100 transition">
+                    Clear
+                </button>
+                <button type="button" id="submitBtn" disabled onclick="openConfirmModal()"
+                    class="flex items-center gap-1.5 text-xs px-5 py-2 bg-blue-700 text-white rounded-lg
+                           hover:bg-blue-800 transition disabled:opacity-40 disabled:cursor-not-allowed font-semibold">
+                    ✓ Catat Maintenance (<span id="markCount">0</span>)
+                </button>
+            </div>
+        </div>
+        @endif
+
+    </form>
+</div>
+
+
+<!-- ================= MODAL KONFIRMASI ================= -->
+<div id="confirmModal"
+     class="fixed inset-0 bg-black bg-opacity-20 backdrop-blur-[2px] z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-8">
+
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-bold text-[#243B7C]">
-                Today's Schedule
-                <span class="text-sm font-normal text-gray-400 ml-2">{{ now()->format('d M Y') }}</span>
-            </h3>
-            @if(auth()->user()->isAdmin())
-            <button onclick="openAddModal()"
-                class="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
-                + Add Schedule
+            <h3 class="text-xl font-bold text-[#243B7C]">Konfirmasi Maintenance</h3>
+            <button onclick="closeConfirmModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+
+        <p class="text-gray-500 text-sm mb-3">Device yang sudah selesai dimaintenance:</p>
+
+        <div id="selectedDevicesList"
+             class="bg-gray-50 rounded-lg px-4 py-3 mb-4 text-sm text-gray-700 max-h-40 overflow-y-auto space-y-1.5">
+        </div>
+
+        <div class="mb-5">
+            <label class="block text-sm text-gray-700 mb-1">Notes (optional)</label>
+            <textarea name="notes"
+                id="notesInput"
+                rows="3"
+                form="maintenanceForm"
+                class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 resize-none text-sm"
+                placeholder="e.g. Cleaned fan, updated firmware..."></textarea>
+        </div>
+
+        <div class="flex justify-end gap-3">
+            <button type="button" onclick="closeConfirmModal()"
+                class="px-5 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 text-sm">
+                Batal
             </button>
-            @endif
+            <button type="submit" form="maintenanceForm"
+                class="px-5 py-2 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-800 text-sm">
+                ✓ Simpan
+            </button>
         </div>
-
-        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div class="overflow-x-auto overflow-y-auto max-h-[50vh]">
-        <table class="w-full text-sm border border-gray-200">
-            <thead class="text-[#243B7C] font-semibold border-b-2 border-gray-300 sticky top-0 z-10 bg-white">
-                <tr>
-                    <th class="px-4 py-3 text-left whitespace-nowrap">Device</th>
-                    <th class="px-4 py-3 text-left whitespace-nowrap">Next Maintenance</th>
-                    <th class="px-4 py-3 text-left whitespace-nowrap">Status</th>
-                    <th class="px-4 py-3 text-left whitespace-nowrap">Done By</th>
-                    <th class="px-4 py-3 text-left whitespace-nowrap">Action</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-300">
-                @forelse ($todaySchedules as $s)
-                <tr class="hover:bg-gray-50 transition {{ $s->is_done ? 'opacity-60' : '' }}">
-                    <td class="px-4 py-3 font-medium text-gray-800 whitespace-nowrap">{{ $s->device_name }}</td>
-                    <td class="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
-                        {{ $s->next_maintenance->format('d M Y') }}
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap">
-                        @if ($s->is_done)
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-                                ✓ Done
-                            </span>
-                        @else
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
-                                Pending
-                            </span>
-                        @endif
-                    </td>
-                    <td class="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">
-                        {{ $s->is_done ? ($s->doneBy->name ?? 'System') : '-' }}
-                        @if ($s->done_at)
-                            <span class="block text-gray-400">{{ $s->done_at->format('H:i') }}</span>
-                        @endif
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap">
-                        @if(!$s->is_done && auth()->user()->isAdmin())
-                        <button onclick="openDoneModal({{ $s->id }}, '{{ $s->device_name }}')"
-                            class="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition">
-                            ✓ Mark Done
-                        </button>
-                        @endif
-                        @if(auth()->user()->isAdmin())
-                        <form action="{{ route('maintenance.destroy', $s->id) }}" method="POST" class="inline"
-                            onsubmit="return confirm('Delete this schedule?')">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="px-3 py-1 bg-red-100 text-red-600 text-xs rounded hover:bg-red-200 transition ml-1">
-                                Delete
-                            </button>
-                        </form>
-                        @endif
-                    </td>
-                </tr>
-                @empty
-                <tr>
-                    <td colspan="5" class="px-4 py-10 text-center text-gray-400 text-sm">
-                        No maintenance scheduled for today.
-                    </td>
-                </tr>
-                @endforelse
-            </tbody>
-        </table>
-        </div>
-        </div>
-    </div>
-
-    <!-- ================= UPCOMING ================= -->
-    <div>
-        <h3 class="text-lg font-bold text-[#243B7C] mb-4">Upcoming (7 Days)</h3>
-        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div class="overflow-y-auto max-h-[50vh]">
-            @forelse ($upcoming as $u)
-            <div class="px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="font-medium text-gray-800 text-sm">{{ $u->device_name }}</p>
-                        <p class="text-xs text-gray-400 mt-0.5">
-                            {{ $u->scheduled_date->format('d M Y') }}
-                            <span class="ml-1 text-blue-500">
-                                ({{ now()->diffInDays($u->scheduled_date) }}d left)
-                            </span>
-                        </p>
-                    </div>
-                    <span class="text-xs text-gray-400">Every 3d</span>
-                </div>
-            </div>
-            @empty
-            <div class="px-4 py-10 text-center text-gray-400 text-sm">
-                No upcoming schedules.
-            </div>
-            @endforelse
-        </div>
-        </div>
-    </div>
-
-</div>
-
-<!-- ================= MODAL TAMBAH JADWAL ================= -->
-<div id="addModal"
-     class="fixed inset-0 bg-black bg-opacity-20 backdrop-blur-[2px] z-50 hidden flex items-center justify-center">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-8">
-
-        <div class="flex items-center justify-between mb-6">
-            <h3 class="text-xl font-bold text-[#243B7C]">Add Maintenance Schedule</h3>
-            <button onclick="closeAddModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
-        </div>
-
-        <form action="{{ route('maintenance.store') }}" method="POST">
-            @csrf
-
-            <div class="space-y-4">
-
-                <div>
-                    <label class="block text-sm text-gray-700 mb-1">Device <span class="text-red-500">*</span></label>
-
-                    @if (count($zbxDevices) > 0)
-                    {{-- Zabbix tersambung: tampilkan dropdown --}}
-                    <select name="device_id" id="deviceSelect" onchange="fillDeviceName()"
-                        class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-400" required>
-                        <option value="">Select device from Zabbix</option>
-                        @foreach ($zbxDevices as $zd)
-                        <option value="{{ $zd['hostid'] }}" data-name="{{ $zd['host'] }}">
-                            {{ $zd['host'] }} — {{ $zd['ip'] }}
-                        </option>
-                        @endforeach
-                    </select>
-                    <input type="hidden" name="device_name" id="deviceNameInput">
-                    @else
-                    {{-- Zabbix tidak tersambung: input manual --}}
-                    <input type="text" name="device_name"
-                        class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-400"
-                        placeholder="e.g. Router A, Switch MOVIO..." required>
-                    <input type="hidden" name="device_id" value="manual">
-                    <p class="text-xs text-yellow-600 mt-1">⚠ Zabbix not connected. Enter device name manually.</p>
-                    @endif
-                </div>
-
-                <div>
-                    <label class="block text-sm text-gray-700 mb-1">Scheduled Date <span class="text-red-500">*</span></label>
-                    <input type="date" name="scheduled_date"
-                        min="{{ now()->format('Y-m-d') }}"
-                        value="{{ now()->format('Y-m-d') }}"
-                        class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-400" required>
-                </div>
-
-                <p class="text-xs text-gray-400">
-                    Next maintenance will be automatically scheduled 3 days after.
-                </p>
-
-            </div>
-
-            <div class="flex justify-end gap-3 mt-6">
-                <button type="button" onclick="closeAddModal()"
-                    class="px-5 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300">
-                    Cancel
-                </button>
-                <button type="submit"
-                    class="px-5 py-2 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-800">
-                    Save Schedule
-                </button>
-            </div>
-        </form>
     </div>
 </div>
 
-<!-- ================= MODAL MARK DONE ================= -->
-<div id="doneModal"
-     class="fixed inset-0 bg-black bg-opacity-20 backdrop-blur-[2px] z-50 hidden flex items-center justify-center">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-8">
-
-        <div class="flex items-center justify-between mb-6">
-            <h3 class="text-xl font-bold text-[#243B7C]">Mark as Done</h3>
-            <button onclick="closeDoneModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
-        </div>
-
-        <p class="text-gray-600 text-sm mb-4">
-            Confirm maintenance completed for:
-            <span id="doneDeviceName" class="font-semibold text-gray-800"></span>
-        </p>
-
-        <form id="doneForm" method="POST">
-            @csrf
-            <div class="mb-4">
-                <label class="block text-sm text-gray-700 mb-1">Notes (optional)</label>
-                <textarea name="notes" rows="3"
-                    class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-400 resize-none"
-                    placeholder="e.g. Cleaned fan, updated firmware..."></textarea>
-            </div>
-
-            <div class="flex justify-end gap-3">
-                <button type="button" onclick="closeDoneModal()"
-                    class="px-5 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300">
-                    Cancel
-                </button>
-                <button type="submit"
-                    class="px-5 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700">
-                    ✓ Confirm Done
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
 
 <!-- ================= SCRIPT ================= -->
 <script>
-function openAddModal()  { document.getElementById('addModal').classList.remove('hidden'); }
-function closeAddModal() { document.getElementById('addModal').classList.add('hidden'); }
-
-function openDoneModal(id, name) {
-    document.getElementById('doneDeviceName').textContent = name;
-    document.getElementById('doneForm').action = '/maintenance/' + id + '/done';
-    document.getElementById('doneModal').classList.remove('hidden');
-}
-function closeDoneModal() { document.getElementById('doneModal').classList.add('hidden'); }
-
-function fillDeviceName() {
-    const select = document.getElementById('deviceSelect');
-    if (!select) return;
-    const option = select.options[select.selectedIndex];
-    const input  = document.getElementById('deviceNameInput');
-    if (input) input.value = option.dataset.name || '';
+// ─── Checkbox logic ───────────────────────────────────────────
+function getCheckboxes() {
+    return [...document.querySelectorAll('.device-cb:not([disabled])')];
 }
 
-document.getElementById('addModal').addEventListener('click', function(e) {
-    if (e.target === this) closeAddModal();
+function updateUI() {
+    const checked = getCheckboxes().filter(c => c.checked);
+    const count   = checked.length;
+
+    document.getElementById('selCount').textContent  = count;
+    document.getElementById('markCount').textContent = count;
+    document.getElementById('submitBtn').disabled    = count === 0;
+
+    // Master checkbox state
+    const all      = getCheckboxes();
+    const checkAll = document.getElementById('checkAll');
+    checkAll.indeterminate = count > 0 && count < all.length;
+    checkAll.checked       = all.length > 0 && count === all.length;
+
+    // Highlight rows
+    getCheckboxes().forEach(cb => {
+        const row = cb.closest('tr');
+        if (cb.checked) row.classList.add('bg-blue-50');
+        else            row.classList.remove('bg-blue-50');
+    });
+}
+
+function clearSelection() {
+    getCheckboxes().forEach(cb => { cb.checked = false; });
+    updateUI();
+}
+
+// Master checkbox
+document.getElementById('checkAll').addEventListener('change', function () {
+    getCheckboxes().forEach(cb => { cb.checked = this.checked; });
+    updateUI();
 });
-document.getElementById('doneModal').addEventListener('click', function(e) {
-    if (e.target === this) closeDoneModal();
+
+// Per-row checkbox
+document.querySelectorAll('.device-cb').forEach(cb => {
+    cb.addEventListener('change', updateUI);
+});
+
+// ─── Search ───────────────────────────────────────────────────
+document.getElementById('searchInput').addEventListener('input', function () {
+    const q = this.value.toLowerCase().trim();
+    document.querySelectorAll('.device-row').forEach(row => {
+        const name = row.dataset.name || '';
+        row.style.display = name.includes(q) ? '' : 'none';
+    });
+});
+
+// ─── Confirm modal ────────────────────────────────────────────
+function openConfirmModal() {
+    const checked = getCheckboxes().filter(c => c.checked);
+    if (checked.length === 0) return;
+
+    const list = document.getElementById('selectedDevicesList');
+    list.innerHTML = '';
+    checked.forEach(cb => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center gap-2';
+        div.innerHTML = `<span class="text-blue-500 font-bold">✓</span>
+                         <span>${cb.dataset.name}</span>`;
+        list.appendChild(div);
+    });
+
+    document.getElementById('notesInput').value = '';
+    document.getElementById('confirmModal').classList.remove('hidden');
+}
+
+function closeConfirmModal() {
+    document.getElementById('confirmModal').classList.add('hidden');
+}
+
+document.getElementById('confirmModal').addEventListener('click', function (e) {
+    if (e.target === this) closeConfirmModal();
 });
 </script>
 
