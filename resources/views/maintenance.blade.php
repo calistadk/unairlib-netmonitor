@@ -64,10 +64,12 @@
                 Today's Schedule
                 <span class="text-sm font-normal text-gray-400 ml-2">{{ now()->format('d M Y') }}</span>
             </h3>
+            @if(auth()->user()->isAdmin())
             <button onclick="openAddModal()"
                 class="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
                 + Add Schedule
             </button>
+            @endif
         </div>
 
         <div class="bg-white rounded-xl shadow-sm overflow-hidden">
@@ -107,20 +109,22 @@
                         @endif
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap">
-                        @if (!$s->is_done)
+                        @if(!$s->is_done && auth()->user()->isAdmin())
                         <button onclick="openDoneModal({{ $s->id }}, '{{ $s->device_name }}')"
                             class="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition">
                             ✓ Mark Done
                         </button>
                         @endif
+                        @if(auth()->user()->isAdmin())
                         <form action="{{ route('maintenance.destroy', $s->id) }}" method="POST" class="inline"
-                              onsubmit="return confirm('Delete this schedule?')">
+                            onsubmit="return confirm('Delete this schedule?')">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="px-3 py-1 bg-red-100 text-red-600 text-xs rounded hover:bg-red-200 transition ml-1">
                                 Delete
                             </button>
                         </form>
+                        @endif
                     </td>
                 </tr>
                 @empty

@@ -26,33 +26,44 @@
         </div>
 
         <!-- FORM -->
-        <div class="space-y-5">
+        <form action="/login" method="POST" class="space-y-5">
+            @csrf
+
+            @if ($errors->any())
+            <div class="px-4 py-3 bg-red-100 text-red-700 rounded-xl text-sm">
+                {{ $errors->first() }}
+            </div>
+            @endif
+
+            @if (session('error'))
+            <div class="px-4 py-3 bg-red-100 text-red-700 rounded-xl text-sm">
+                {{ session('error') }}
+            </div>
+            @endif
 
             <div>
                 <label class="text-gray-700 text-sm">Email</label>
-                <input type="text"
+                <input type="email" name="email" value="{{ old('email') }}"
                     placeholder="Masukkan email"
                     class="w-full mt-1 px-4 py-3 rounded-xl border bg-gray-200 focus:outline-none">
             </div>
 
             <div>
                 <label class="text-gray-700 text-sm">Password</label>
-                <input type="password"
+                <input type="password" name="password"
                     placeholder="Masukkan password"
                     class="w-full mt-1 px-4 py-3 rounded-xl border bg-gray-200 focus:outline-none">
             </div>
 
             <div class="text-right">
-                <a href="#" class="text-sm text-blue-600">
-                    Lupa Password?
-                </a>
+                <a href="#" class="text-sm text-blue-600">Lupa Password?</a>
             </div>
 
-            <button class="w-full bg-[#0F4C8A] text-white py-3 rounded-xl font-semibold hover:bg-blue-800 transition">
+            <button type="submit"
+                class="w-full bg-[#0F4C8A] text-white py-3 rounded-xl font-semibold hover:bg-blue-800 transition">
                 Login
             </button>
-
-        </div>
+        </form>
 
         <!-- FOOTER -->
         <p class="text-center text-gray-400 text-sm mt-8">
