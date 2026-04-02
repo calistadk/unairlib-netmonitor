@@ -70,6 +70,7 @@
 
     <thead class="text-[#243B7C] font-semibold border-b-2 border-gray-300 sticky top-0 z-10 bg-white">
         <tr>
+            <th class="px-6 py-4 text-left">No.</th>
             <th class="px-6 py-4 text-left">ID</th>
             <th class="px-6 py-4 text-left">Name</th>
             <th class="px-6 py-4 text-left">Interface</th>
@@ -86,6 +87,7 @@
             data-iface="{{ $item['iface_type'] }}"
             data-search="{{ strtolower($item['id'].' '.$item['nama'].' '.$item['interface'].' '.$item['iface_type']) }}">
 
+            <td class="px-6 py-4 text-gray-500">{{ $loop->iteration }}</td>
             <td class="px-6 py-4 text-gray-700">{{ $item['id'] }}</td>
             <td class="px-6 py-4 text-gray-800 font-medium">{{ $item['nama'] }}</td>
 

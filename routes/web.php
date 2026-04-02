@@ -139,7 +139,7 @@ Route::get('/login',   [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login',  [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-// Redirect root ke dashboard
+// ── Redirect root ke dashboard ────────────────────────────
 Route::get('/', function () {
     return redirect('/dashboard');
 });
@@ -362,13 +362,13 @@ Route::middleware('auth')->group(function () {
         }
     });
 
-    // ── PERANGKAT ─────────────────────────────────────────────
+    // ── PERANGKAT (view — admin & user) ───────────────────────
     Route::get('/perangkat', function () {
 
         $auth = getZabbixToken();
 
         if (!$auth) {
-            return view('perangkat', ['devices' => []]);
+            return view('perangkat', ['perangkat' => []]);
         }
 
         $res = Http::post(ZABBIX_API, [
@@ -385,8 +385,8 @@ Route::middleware('auth')->group(function () {
             "id"   => 20,
         ]);
 
-        $zbxHosts = $res->json()['result'] ?? [];
-        $devices  = [];
+        $zbxHosts  = $res->json()['result'] ?? [];
+        $perangkat = [];
 
         foreach ($zbxHosts as $h) {
             $iface  = $h['interfaces'][0] ?? [];
@@ -405,7 +405,7 @@ Route::middleware('auth')->group(function () {
             elseif ($avail == 2) $status = 'Offline';
             else                 $status = 'Unknown';
 
-            $devices[] = [
+            $perangkat[] = [
                 'hostid'     => $h['hostid'],
                 'host'       => $h['host'],
                 'ip'         => $iface['ip'] ?? '-',
@@ -426,7 +426,7 @@ Route::middleware('auth')->group(function () {
             ];
         }
 
-        return view('perangkat', compact('devices'));
+        return view('perangkat', compact('perangkat'));
 
     })->name('perangkat.index');
 
@@ -436,249 +436,61 @@ Route::middleware('auth')->group(function () {
         $auth = getZabbixToken();
         if (!$auth) return response()->json(['groups' => [], 'templates' => []]);
 
-        try {
-            $groups = Http::timeout(5)->post(ZABBIX_API, [
-                "jsonrpc" => "2.0",
-                "method"  => "hostgroup.get",
-                "params"  => ["output" => ["groupid", "name"]],
-                "auth"    => $auth,
-                "id"      => 31,
-            ])->json()['result'] ?? [];
+        $groupRes = Http::post(ZABBIX_API, [
+            "jsonrpc" => "2.0",
+            "method"  => "hostgroup.get",
+            "params"  => ["output" => ["groupid", "name"]],
+            "auth"    => $auth,
+            "id"      => 30,
+        ]);
 
-            $templates = Http::timeout(5)->post(ZABBIX_API, [
-                "jsonrpc" => "2.0",
-                "method"  => "template.get",
-                "params"  => ["output" => ["templateid", "name"]],
-                "auth"    => $auth,
-                "id"      => 32,
-            ])->json()['result'] ?? [];
+        $tplRes = Http::post(ZABBIX_API, [
+            "jsonrpc" => "2.0",
+            "method"  => "template.get",
+            "params"  => ["output" => ["templateid", "name"]],
+            "auth"    => $auth,
+            "id"      => 31,
+        ]);
 
-            return response()->json(compact('groups', 'templates'));
-
-        } catch (\Exception $e) {
-            return response()->json(['groups' => [], 'templates' => []]);
-        }
+        return response()->json([
+            'groups'    => $groupRes->json()['result'] ?? [],
+            'templates' => $tplRes->json()['result'] ?? [],
+        ]);
 
     })->name('zabbix.options');
 
-    Route::delete('/zabbix/host/{hostid}', function (Request $request, $hostid) {
- 
-    $deleted = false;
-    $errors  = [];
- 
-    // 1. Hapus dari Zabbix
-    $auth = getZabbixToken();
-    if ($auth) {
-        try {
-            $res = Http::timeout(5)->post(ZABBIX_API, [
-                "jsonrpc" => "2.0",
-                "method"  => "host.delete",
-                "params"  => [$hostid],
-                "auth"    => $auth,
-                "id"      => 40,
-            ]);
- 
-            $result = $res->json();
- 
-            if (isset($result['error'])) {
-                $errors[] = 'Zabbix: ' . $result['error']['data'];
-            } else {
-                $deleted = true;
-                Cache::forget('zabbix_api_token');
-            }
- 
-        } catch (\Exception $e) {
-            $errors[] = 'Gagal konek Zabbix: ' . $e->getMessage();
-        }
-    } else {
-        $errors[] = 'Tidak bisa konek ke Zabbix';
-    }
- 
-    // 2. Hapus dari DB lokal (berdasarkan hostid Zabbix atau ip/nama)
-    // Sesuaikan nama tabel/kolom dengan struktur DB kamu
-    try {
-        \DB::table('devices')
-            ->where('zabbix_hostid', $hostid)
-            ->delete();
-    } catch (\Exception $e) {
-        // Jika kolom zabbix_hostid tidak ada, coba cara lain atau abaikan
-        // $errors[] = 'DB lokal: ' . $e->getMessage();
-    }
- 
-    if (!empty($errors)) {
-        return back()->with('error', implode(' | ', $errors));
-    }
- 
-    return back()->with('success', 'Host berhasil dihapus dari Zabbix dan database lokal.');
- 
-})->name('zabbix.host.destroy');
+    // ── ZABBIX HOST — get single host (untuk edit form) ───────
+    Route::get('/zabbix/host/{id}', function (string $id) {
 
-Route::get('/zabbix/host/{hostid}', function ($hostid) {
- 
-    $auth = getZabbixToken();
-    if (!$auth) return response()->json(['error' => 'Tidak bisa konek ke Zabbix'], 500);
- 
-    try {
-        $res = Http::timeout(5)->post(ZABBIX_API, [
+        $auth = getZabbixToken();
+        if (!$auth) return response()->json([], 503);
+
+        $res = Http::post(ZABBIX_API, [
             "jsonrpc" => "2.0",
             "method"  => "host.get",
             "params"  => [
-                "hostids" => [$hostid],
-                "output"  => ["hostid", "host"],
-                "selectInterfaces" => ["interfaceid", "type", "ip", "port", "main"],
-                "selectGroups"     => ["groupid", "name"],
+                "output"                => ["hostid", "host"],
+                "hostids"               => [$id],
+                "selectInterfaces"      => ["interfaceid", "ip", "port", "type", "main"],
+                "selectGroups"          => ["groupid", "name"],
                 "selectParentTemplates" => ["templateid", "name"],
             ],
             "auth" => $auth,
-            "id"   => 50,
+            "id"   => 40,
         ]);
- 
-        $host = $res->json()['result'][0] ?? null;
-        if (!$host) return response()->json(['error' => 'Host tidak ditemukan'], 404);
- 
-        return response()->json($host);
- 
-    } catch (\Exception $e) {
-        return response()->json(['error' => $e->getMessage()], 500);
-    }
- 
-})->name('zabbix.host.show');
- 
-// -------------------------------------------------------
-// Update host di Zabbix
-// -------------------------------------------------------
-Route::put('/zabbix/host/{hostid}', function (Request $request, $hostid) {
- 
-    $auth = getZabbixToken();
-    if (!$auth) return back()->with('error', 'Tidak bisa konek ke Zabbix');
- 
-    $ifaceType = match($request->iface_type) {
-        'SNMP' => 2, 'IPMI' => 3, 'JMX' => 4, default => 1,
-    };
- 
-    // Ambil interfaceid existing dulu
-    try {
-        $existing = Http::timeout(5)->post(ZABBIX_API, [
-            "jsonrpc" => "2.0",
-            "method"  => "host.get",
-            "params"  => [
-                "hostids"          => [$hostid],
-                "output"           => ["hostid"],
-                "selectInterfaces" => ["interfaceid", "main"],
-            ],
-            "auth" => $auth,
-            "id"   => 51,
-        ])->json()['result'][0] ?? null;
- 
-        $interfaceid = collect($existing['interfaces'] ?? [])
-            ->firstWhere('main', '1')['interfaceid'] ?? null;
- 
-    } catch (\Exception $e) {
-        return back()->with('error', 'Gagal ambil data interface: ' . $e->getMessage());
-    }
- 
-    $params = [
-        "hostid" => $hostid,
-        "host"   => $request->host_name,
-        "groups" => [["groupid" => $request->group_id]],
-        "templates" => $request->template_ids
-            ? array_map(fn($t) => ["templateid" => $t], (array)$request->template_ids)
-            : [],
-    ];
- 
-    // Update interface jika ditemukan
-    if ($interfaceid) {
-        $params["interfaces"] = [[
-            "interfaceid" => $interfaceid,
-            "type"        => $ifaceType,
-            "main"        => 1,
-            "useip"       => 1,
-            "ip"          => $request->ip_address,
-            "dns"         => "",
-            "port"        => $request->port ?? "10050",
-        ]];
-    }
- 
-    try {
-        $res    = Http::timeout(5)->post(ZABBIX_API, [
-            "jsonrpc" => "2.0",
-            "method"  => "host.update",
-            "params"  => $params,
-            "auth"    => $auth,
-            "id"      => 52,
-        ]);
- 
-        $result = $res->json();
- 
-        if (isset($result['error'])) {
-            return back()->with('error', 'Zabbix error: ' . $result['error']['data']);
-        }
- 
-        Cache::forget('zabbix_api_token');
-        return back()->with('success', 'Host ' . $request->host_name . ' berhasil diupdate.');
- 
-    } catch (\Exception $e) {
-        return back()->with('error', 'Gagal konek ke Zabbix: ' . $e->getMessage());
-    }
- 
-})->name('zabbix.host.update');
 
-    // ── LOG ────────────────────────────────────────────────────
+        return response()->json($res->json()['result'][0] ?? []);
+
+    })->name('zabbix.host.show');
+
+    // ── LOG (view — admin & user) ──────────────────────────────
     Route::get('/log', [ActivityLogController::class, 'index'])->name('log.index');
 
-    // ── MAINTENANCE ───────────────────────────────────────────
+    // ── MAINTENANCE (view — admin & user) ─────────────────────
     Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance.index');
 
     // ── ADMIN ONLY ────────────────────────────────────────────
     Route::middleware('admin')->group(function () {
-
-        // Tambah host baru ke Zabbix
-        Route::post('/zabbix/host', function (Request $request) {
-
-            $auth = getZabbixToken();
-            if (!$auth) return back()->with('error', 'Tidak bisa konek ke Zabbix');
-
-            $ifaceType = match($request->iface_type) {
-                'SNMP' => 2, 'IPMI' => 3, 'JMX' => 4, default => 1,
-            };
-
-            try {
-                $res = Http::timeout(5)->post(ZABBIX_API, [
-                    "jsonrpc" => "2.0",
-                    "method"  => "host.create",
-                    "params"  => [
-                        "host"       => $request->host_name,
-                        "interfaces" => [[
-                            "type"  => $ifaceType,
-                            "main"  => 1,
-                            "useip" => 1,
-                            "ip"    => $request->ip_address,
-                            "dns"   => "",
-                            "port"  => $request->port ?: "10050",
-                        ]],
-                        "groups"    => [["groupid" => $request->group_id]],
-                        "templates" => $request->template_ids
-                            ? array_map(fn($t) => ["templateid" => $t], (array)$request->template_ids)
-                            : [],
-                    ],
-                    "auth" => $auth,
-                    "id"   => 30,
-                ]);
-
-                $result = $res->json();
-
-                if (isset($result['error'])) {
-                    return back()->with('error', 'Zabbix: ' . $result['error']['data']);
-                }
-
-                Cache::forget('zabbix_api_token');
-                return back()->with('success', 'Host ' . $request->host_name . ' berhasil ditambahkan ke Zabbix');
-
-            } catch (\Exception $e) {
-                return back()->with('error', 'Gagal konek ke Zabbix');
-            }
-
-        })->name('zabbix.host.store');
 
         // Log
         Route::post('/log', [ActivityLogController::class, 'store'])->name('log.store');
@@ -687,5 +499,130 @@ Route::put('/zabbix/host/{hostid}', function (Request $request, $hostid) {
         Route::post('/maintenance',           [MaintenanceController::class, 'store'])->name('maintenance.store');
         Route::post('/maintenance/{id}/done', [MaintenanceController::class, 'markDone'])->name('maintenance.done');
         Route::delete('/maintenance/{id}',    [MaintenanceController::class, 'destroy'])->name('maintenance.destroy');
+
+        // Zabbix Host — store
+        Route::post('/zabbix/host', function (Request $request) {
+
+            $auth = getZabbixToken();
+            if (!$auth) return back()->with('error', 'Tidak dapat terhubung ke Zabbix.');
+
+            $ifaceTypeMap = ['ZBX' => 1, 'SNMP' => 2, 'IPMI' => 3, 'JMX' => 4];
+            $ifaceType    = $ifaceTypeMap[$request->iface_type] ?? 1;
+
+            $res = Http::post(ZABBIX_API, [
+                "jsonrpc" => "2.0",
+                "method"  => "host.create",
+                "params"  => [
+                    "host"       => $request->host_name,
+                    "interfaces" => [[
+                        "type"  => $ifaceType,
+                        "main"  => 1,
+                        "useip" => 1,
+                        "ip"    => $request->ip_address,
+                        "dns"   => "",
+                        "port"  => $request->port ?? "10050",
+                    ]],
+                    "groups"    => [["groupid" => $request->group_id]],
+                    "templates" => collect($request->template_ids ?? [])
+                        ->map(fn($id) => ["templateid" => $id])->all(),
+                ],
+                "auth" => $auth,
+                "id"   => 50,
+            ]);
+
+            $result = $res->json();
+
+            if (isset($result['error'])) {
+                return back()->with('error', 'Gagal menambah host: ' . $result['error']['data']);
+            }
+
+            return back()->with('success', 'Host ' . $request->host_name . ' berhasil ditambahkan ke Zabbix.');
+
+        })->name('zabbix.host.store');
+
+        // Zabbix Host — update
+        Route::put('/zabbix/host/{id}', function (Request $request, string $id) {
+
+            $auth = getZabbixToken();
+            if (!$auth) return back()->with('error', 'Tidak dapat terhubung ke Zabbix.');
+
+            $ifaceTypeMap = ['ZBX' => 1, 'SNMP' => 2, 'IPMI' => 3, 'JMX' => 4];
+            $ifaceType    = $ifaceTypeMap[$request->iface_type] ?? 1;
+
+            $hostRes = Http::post(ZABBIX_API, [
+                "jsonrpc" => "2.0",
+                "method"  => "host.get",
+                "params"  => [
+                    "output"           => ["hostid"],
+                    "hostids"          => [$id],
+                    "selectInterfaces" => ["interfaceid"],
+                ],
+                "auth" => $auth,
+                "id"   => 60,
+            ]);
+
+            $interfaceid = $hostRes->json()['result'][0]['interfaces'][0]['interfaceid'] ?? null;
+
+            $params = [
+                "hostid"    => $id,
+                "host"      => $request->host_name,
+                "groups"    => [["groupid" => $request->group_id]],
+                "templates" => collect($request->template_ids ?? [])
+                    ->map(fn($tid) => ["templateid" => $tid])->all(),
+            ];
+
+            if ($interfaceid) {
+                $params["interfaces"] = [[
+                    "interfaceid" => $interfaceid,
+                    "type"        => $ifaceType,
+                    "main"        => 1,
+                    "useip"       => 1,
+                    "ip"          => $request->ip_address,
+                    "dns"         => "",
+                    "port"        => $request->port ?? "10050",
+                ]];
+            }
+
+            $res    = Http::post(ZABBIX_API, [
+                "jsonrpc" => "2.0",
+                "method"  => "host.update",
+                "params"  => $params,
+                "auth"    => $auth,
+                "id"      => 61,
+            ]);
+
+            $result = $res->json();
+
+            if (isset($result['error'])) {
+                return back()->with('error', 'Gagal update host: ' . $result['error']['data']);
+            }
+
+            return back()->with('success', 'Host ' . $request->host_name . ' berhasil diperbarui.');
+
+        })->name('zabbix.host.update');
+
+        // Zabbix Host — destroy
+        Route::delete('/zabbix/host/{id}', function (string $id) {
+
+            $auth = getZabbixToken();
+            if (!$auth) return back()->with('error', 'Tidak dapat terhubung ke Zabbix.');
+
+            $res = Http::post(ZABBIX_API, [
+                "jsonrpc" => "2.0",
+                "method"  => "host.delete",
+                "params"  => [$id],
+                "auth"    => $auth,
+                "id"      => 70,
+            ]);
+
+            $result = $res->json();
+
+            if (isset($result['error'])) {
+                return back()->with('error', 'Gagal menghapus host: ' . $result['error']['data']);
+            }
+
+            return back()->with('success', 'Host berhasil dihapus dari Zabbix.');
+
+        })->name('zabbix.host.destroy');
     });
 });

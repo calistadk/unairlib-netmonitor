@@ -68,10 +68,10 @@
 
     <thead class="text-[#243B7C] font-semibold border-b-2 border-gray-300 sticky top-0 z-10 bg-white">
         <tr>
+            <th class="px-6 py-4 text-left">No.</th>
             <th class="px-6 py-4 text-left">Host</th>
             <th class="px-6 py-4 text-left">IP</th>
-            <th class="px-6 py-4 text-left">Interface</th>
-            <th class="px-6 py-4 text-left">Status</th>
+            <th class="px-6 py-4 text-left">Availability</th>
             <th class="px-6 py-4 text-left">Group</th>
             <th class="px-6 py-4 text-left">Type</th>
             <th class="px-6 py-4 text-left">Vendor & Model</th>
@@ -83,60 +83,44 @@
     </thead>
 
     <tbody id="deviceBody" class="divide-y divide-gray-300">
-        @forelse ($devices as $d)
+        @forelse ($perangkat as $item)
         <tr class="hover:bg-gray-50 transition device-row"
-            data-status="{{ $d['status'] }}"
-            data-iface="{{ $d['iface_type'] }}"
-            data-search="{{ strtolower($d['host'].' '.$d['ip'].' '.$d['serial'].' '.$d['vendor'].' '.$d['model'].' '.$d['groups']) }}">
+            data-status="{{ $item['status'] }}"
+            data-iface="{{ $item['iface_type'] }}"
+            data-search="{{ strtolower($item['host'].' '.$item['ip'].' '.$item['serial'].' '.$item['vendor'].' '.$item['model'].' '.$item['groups']) }}">
 
-            <td class="px-6 py-4 font-medium text-gray-800">{{ $d['host'] }}</td>
-            <td class="px-6 py-4 font-mono text-xs text-gray-700">{{ $d['ip'] }}</td>
-
-            <td class="px-6 py-4">
-                @php
-                    $ibg = match($d['iface_type']) {
-                        'ZBX'  => $d['status'] === 'Online'  ? 'bg-green-100 text-green-700'
-                                : ($d['status'] === 'Offline' ? 'bg-red-100 text-red-700'
-                                :                               'bg-yellow-100 text-yellow-700'),
-                        'SNMP' => 'bg-blue-100 text-blue-700',
-                        'IPMI' => 'bg-purple-100 text-purple-700',
-                        'JMX'  => 'bg-orange-100 text-orange-700',
-                        default => 'bg-gray-100 text-gray-600',
-                    };
-                @endphp
-                <span class="px-2 py-1 rounded-full text-xs font-semibold {{ $ibg }}">
-                    {{ $d['iface_type'] }}
-                </span>
-            </td>
+            <td class="px-6 py-4 text-gray-500">{{ $loop->iteration }}</td>
+            <td class="px-6 py-4 font-medium text-gray-800">{{ $item['host'] }}</td>
+            <td class="px-6 py-4 font-mono text-xs text-gray-700">{{ $item['ip'] }}</td>
 
             <td class="px-6 py-4">
                 @php
-                    $sbg = match($d['status']) {
-                        'Online'  => 'bg-green-100 text-green-700',
-                        'Offline' => 'bg-red-100 text-red-700',
-                        default   => 'bg-yellow-100 text-yellow-700',
+                    $badgeColor = match($item['status']) {
+                        'Online'  => 'bg-green-500',
+                        'Offline' => 'bg-red-500',
+                        default   => 'bg-yellow-400',
                     };
                 @endphp
-                <span class="px-2 py-1 rounded-full text-xs font-semibold {{ $sbg }}">
-                    {{ $d['status'] }}
+                <span class="text-white text-xs font-bold px-2 py-1 rounded {{ $badgeColor }}">
+                    {{ $item['iface_type'] }}
                 </span>
             </td>
 
-            <td class="px-6 py-4 text-gray-600 text-xs">{{ $d['groups'] ?: '-' }}</td>
-            <td class="px-6 py-4 text-gray-700">{{ $d['type'] ?: '-' }}</td>
-            <td class="px-6 py-4 text-gray-700 text-xs">{{ trim($d['vendor'].' '.$d['model']) ?: '-' }}</td>
-            <td class="px-6 py-4 font-mono text-xs text-gray-700">{{ $d['serial'] ?: '-' }}</td>
-            <td class="px-6 py-4 text-xs text-gray-700">{{ $d['os'] ?: '-' }}</td>
-            <td class="px-6 py-4 text-xs text-gray-700">{{ $d['location'] ?: '-' }}</td>
+            <td class="px-6 py-4 text-gray-600 text-xs">{{ $item['groups'] ?: '-' }}</td>
+            <td class="px-6 py-4 text-gray-700">{{ $item['type'] ?: '-' }}</td>
+            <td class="px-6 py-4 text-gray-700 text-xs">{{ trim($item['vendor'].' '.$item['model']) ?: '-' }}</td>
+            <td class="px-6 py-4 font-mono text-xs text-gray-700">{{ $item['serial'] ?: '-' }}</td>
+            <td class="px-6 py-4 text-xs text-gray-700">{{ $item['os'] ?: '-' }}</td>
+            <td class="px-6 py-4 text-xs text-gray-700">{{ $item['location'] ?: '-' }}</td>
 
             <td class="px-6 py-4">
                 <div class="flex items-center gap-2">
-                    <button onclick="showDetail({{ json_encode($d) }})"
-                        class="px-3 py-1 bg-[#243B7C] text-white text-xs rounded hover:bg-blue-800 transition">
+                    <button onclick="showDetail({{ json_encode($item) }})"
+                        class="bg-[#1a1a2e] text-white text-xs px-4 py-2 rounded-lg hover:bg-[#243B7C] transition inline-block">
                         Detail
                     </button>
-                    <button onclick="confirmDelete('{{ $d['hostid'] }}', '{{ addslashes($d['host']) }}')"
-                        class="px-3 py-1 bg-red-100 text-red-600 text-xs rounded hover:bg-red-200 transition">
+                    <button onclick="confirmDelete('{{ $item['hostid'] }}', '{{ addslashes($item['host']) }}')"
+                        class="text-red-600 border border-red-300 text-xs px-3 py-2 rounded-lg hover:bg-red-50 transition">
                         Hapus
                     </button>
                 </div>
@@ -158,7 +142,7 @@
 </div>
 
 <!-- ===================================================================
-     MODAL DETAIL  (dengan tombol Edit Zabbix di footer)
+     MODAL DETAIL
      =================================================================== -->
 <div id="detailModal"
      class="fixed inset-0 bg-black bg-opacity-20 backdrop-blur-[2px] z-50 hidden flex items-center justify-center">
@@ -171,7 +155,6 @@
 
         <div class="divide-y divide-gray-100 text-sm" id="modalContent"></div>
 
-        <!-- Footer: Close + Edit di Zabbix -->
         <div class="flex items-center justify-between mt-6">
             <button onclick="closeDetail()"
                 class="px-5 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 text-sm">
@@ -199,7 +182,6 @@
      class="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-[2px] z-[60] hidden flex items-center justify-center">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-8 max-h-[90vh] overflow-y-auto">
 
-        <!-- Header -->
         <div class="flex items-center justify-between mb-6">
             <div>
                 <h3 class="text-xl font-bold text-[#243B7C]">Edit Host Zabbix</h3>
@@ -209,24 +191,20 @@
                 class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
         </div>
 
-        <!-- Loading indicator -->
         <div id="editZabbixLoading" class="py-10 text-center text-gray-400 text-sm">
             <svg class="animate-spin w-6 h-6 mx-auto mb-2 text-[#243B7C]" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                <path class="opacity-75" fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8H4z"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
             </svg>
             Mengambil data dari Zabbix...
         </div>
 
-        <!-- Form (hidden sampai data loaded) -->
         <form id="editZabbixForm" action="" method="POST" class="hidden">
             @csrf
             @method('PUT')
 
             <div class="space-y-4">
 
-                <!-- Host Name -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         Host Name <span class="text-red-500">*</span>
@@ -236,7 +214,6 @@
                                focus:outline-none focus:ring-2 focus:ring-blue-300">
                 </div>
 
-                <!-- IP Address -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         IP Address <span class="text-red-500">*</span>
@@ -246,7 +223,6 @@
                                focus:outline-none focus:ring-2 focus:ring-blue-300">
                 </div>
 
-                <!-- Interface Type & Port -->
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Interface Type</label>
@@ -268,7 +244,6 @@
                     </div>
                 </div>
 
-                <!-- Host Group -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         Host Group <span class="text-red-500">*</span>
@@ -280,7 +255,6 @@
                     </select>
                 </div>
 
-                <!-- Templates -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         Templates
@@ -295,7 +269,6 @@
 
             </div>
 
-            <!-- Actions -->
             <div class="flex justify-end gap-3 mt-6">
                 <button type="button" onclick="closeEditZabbix()"
                     class="px-5 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold
@@ -307,8 +280,7 @@
                            hover:bg-blue-800 text-sm flex items-center gap-2 transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5"
                          viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                              d="M5 13l4 4L19 7"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
                     </svg>
                     Simpan Perubahan
                 </button>
@@ -473,9 +445,8 @@
 
 <!-- ================= SCRIPT ================= -->
 <script>
-// ── State ───────────────────────────────────────────────
-let currentDevice      = null;   // data device yang sedang di-detail
-let zabbixOptions      = null;   // { groups, templates } cache
+let currentDevice = null;
+let zabbixOptions = null;
 
 // ── Filter ──────────────────────────────────────────────
 function filterDevice() {
@@ -498,7 +469,6 @@ function filterDevice() {
 // ── Detail Modal ─────────────────────────────────────────
 function showDetail(d) {
     currentDevice = d;
-
     document.getElementById('modalTitle').textContent = d.host;
 
     const fields = [
@@ -541,22 +511,13 @@ async function openEditZabbix() {
     if (!currentDevice) return;
 
     const hostid = currentDevice.hostid;
-
-    // Set subtitle
-    document.getElementById('editZabbixSubtitle').textContent =
-        'Mengedit: ' + currentDevice.host;
-
-    // Set action URL form
-    document.getElementById('editZabbixForm').action =
-        '{{ url("/zabbix/host") }}/' + hostid;
-
-    // Tampilkan modal, sembunyikan form, tampilkan loading
+    document.getElementById('editZabbixSubtitle').textContent = 'Mengedit: ' + currentDevice.host;
+    document.getElementById('editZabbixForm').action = '{{ url("/zabbix/host") }}/' + hostid;
     document.getElementById('editZabbixModal').classList.remove('hidden');
     document.getElementById('editZabbixLoading').classList.remove('hidden');
     document.getElementById('editZabbixForm').classList.add('hidden');
 
     try {
-        // Fetch data host + options paralel
         const [hostRes, optRes] = await Promise.all([
             fetch('{{ url("/zabbix/host") }}/' + hostid),
             zabbixOptions
@@ -567,17 +528,13 @@ async function openEditZabbix() {
         const hostData = await hostRes.json();
 
         if (!zabbixOptions) {
-            const optData = await optRes.json();
-            zabbixOptions = optData;
+            zabbixOptions = await optRes.json();
         }
 
-        // Populate dropdowns
         populateEditDropdowns(zabbixOptions, hostData);
 
-        // Pre-fill fields
         document.getElementById('edit_host_name').value = hostData.host ?? '';
 
-        // Interface (ambil interface utama)
         const mainIface = (hostData.interfaces ?? []).find(i => i.main === '1')
                        ?? hostData.interfaces?.[0]
                        ?? {};
@@ -585,12 +542,9 @@ async function openEditZabbix() {
         document.getElementById('edit_ip').value   = mainIface.ip   ?? '';
         document.getElementById('edit_port').value = mainIface.port ?? '10050';
 
-        // Map type number → string
         const ifaceMap = { '1': 'ZBX', '2': 'SNMP', '3': 'IPMI', '4': 'JMX' };
-        const ifaceStr = ifaceMap[mainIface.type] ?? 'ZBX';
-        document.getElementById('edit_iface_type').value = ifaceStr;
+        document.getElementById('edit_iface_type').value = ifaceMap[mainIface.type] ?? 'ZBX';
 
-        // Sembunyikan loading, tampilkan form
         document.getElementById('editZabbixLoading').classList.add('hidden');
         document.getElementById('editZabbixForm').classList.remove('hidden');
 
@@ -601,26 +555,23 @@ async function openEditZabbix() {
 }
 
 function populateEditDropdowns(options, hostData) {
-    // Groups
     const groupSel = document.getElementById('edit_group');
     const activeGroupIds = (hostData.groups ?? []).map(g => g.groupid);
     groupSel.innerHTML = '<option value="">-- Pilih group --</option>';
     (options.groups ?? []).forEach(g => {
         const opt = document.createElement('option');
-        opt.value       = g.groupid;
+        opt.value = g.groupid;
         opt.textContent = g.name;
-        // Pilih group pertama yang dimiliki host
         if (activeGroupIds.includes(g.groupid)) opt.selected = true;
         groupSel.appendChild(opt);
     });
 
-    // Templates
     const tplSel = document.getElementById('edit_templates');
     const activeTemplateIds = (hostData.parentTemplates ?? []).map(t => t.templateid);
     tplSel.innerHTML = '';
     (options.templates ?? []).forEach(t => {
         const opt = document.createElement('option');
-        opt.value       = t.templateid;
+        opt.value = t.templateid;
         opt.textContent = t.name;
         if (activeTemplateIds.includes(t.templateid)) opt.selected = true;
         tplSel.appendChild(opt);
@@ -667,7 +618,7 @@ document.getElementById('addZabbixModal').addEventListener('click', e => {
 
 async function loadZabbixOptions() {
     try {
-        const res  = await fetch('{{ route("zabbix.options") }}');
+        const res = await fetch('{{ route("zabbix.options") }}');
         zabbixOptions = await res.json();
         repopulateAddDropdowns();
     } catch (err) {
