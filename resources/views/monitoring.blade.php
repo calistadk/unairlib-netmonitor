@@ -52,7 +52,8 @@
         <option value="JMX">JMX</option>
     </select>
 
-    <!-- Tombol Add to Zabbix -->
+    {{-- Tombol Add hanya ditampilkan untuk admin --}}
+    @if(auth()->user()->isAdmin())
     <button onclick="openAddZabbix()"
         class="ml-auto flex items-center gap-2 px-4 py-2 bg-[#243B7C] text-white text-sm
                font-semibold rounded-lg hover:bg-blue-800 transition whitespace-nowrap">
@@ -60,6 +61,7 @@
              viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
         Add
     </button>
+    @endif
 
 </div>
 
@@ -75,7 +77,10 @@
             <th class="px-6 py-4 text-left">Name</th>
             <th class="px-6 py-4 text-left">Interface</th>
             <th class="px-6 py-4 text-left">Availability</th>
+            {{-- Kolom Action hanya ditampilkan untuk admin --}}
+            @if(auth()->user()->isAdmin())
             <th class="px-6 py-4 text-left">Action</th>
+            @endif
         </tr>
     </thead>
 
@@ -108,6 +113,8 @@
                 </span>
             </td>
 
+            {{-- Tombol Action (Detail & Hapus) hanya untuk admin --}}
+            @if(auth()->user()->isAdmin())
             <td class="px-6 py-4">
                 <div class="flex items-center gap-2">
                     <!-- Detail -->
@@ -124,6 +131,7 @@
                     </button>
                 </div>
             </td>
+            @endif
 
         </tr>
         @endforeach
@@ -137,7 +145,8 @@
 </div>
 </div>
 
-<!-- ================= MODAL KONFIRMASI HAPUS ================= -->
+<!-- ================= MODAL KONFIRMASI HAPUS (admin only) ================= -->
+@if(auth()->user()->isAdmin())
 <div id="deleteModal"
      class="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-[2px] z-50 hidden flex items-center justify-center">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-8">
@@ -179,21 +188,20 @@
                     <path stroke-linecap="round" stroke-linejoin="round"
                           d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7"/>
                 </svg>
-                Ya, Hapus
+                Hapus
             </button>
         </div>
     </div>
 </div>
 
-<!-- ================= MODAL ADD TO ZABBIX ================= -->
+<!-- ================= MODAL ADD TO ZABBIX (admin only) ================= -->
 <div id="addZabbixModal"
      class="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-[2px] z-50 hidden flex items-center justify-center">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-8 max-h-[90vh] overflow-y-auto">
 
-        <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center justify-between mb-5">
             <div>
                 <h3 class="text-xl font-bold text-[#243B7C]">Add Host to Zabbix</h3>
-                <p class="text-xs text-gray-400 mt-0.5">Daftarkan perangkat baru ke monitoring Zabbix</p>
             </div>
             <button onclick="closeAddZabbix()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
         </div>
@@ -284,6 +292,7 @@
         </form>
     </div>
 </div>
+@endif
 
 <!-- ================= SCRIPT ================= -->
 <script>
@@ -306,6 +315,7 @@ function filterMonitoring() {
     document.getElementById('emptyMonitoring').classList.toggle('hidden', visible > 0);
 }
 
+@if(auth()->user()->isAdmin())
 /* ---- Delete Modal ---- */
 function confirmDelete(hostid, hostName) {
     document.getElementById('deleteHostName').textContent = hostName;
@@ -364,6 +374,7 @@ function updateDefaultPort(ifaceType) {
     const ports = { ZBX: '10050', SNMP: '161', IPMI: '623', JMX: '12345' };
     document.getElementById('zbx_port').value = ports[ifaceType] ?? '10050';
 }
+@endif
 
 /* Auto-dismiss flash */
 ['flashSuccess', 'flashError'].forEach(id => {

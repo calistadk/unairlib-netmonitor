@@ -10,8 +10,13 @@ class AdminOnly
 {
     public function handle(Request $request, Closure $next): Response
     {
+        // GET, HEAD, OPTIONS diizinkan untuk semua user yang sudah login
+        if ($request->isMethod('GET') || $request->isMethod('HEAD') || $request->isMethod('OPTIONS')) {
+            return $next($request);
+        }
+
+        // POST, PUT, PATCH, DELETE hanya untuk admin
         if (!auth()->check() || !auth()->user()->isAdmin()) {
-            // Kalau request AJAX/form POST, redirect balik dengan pesan error
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'Akses ditolak.'], 403);
             }

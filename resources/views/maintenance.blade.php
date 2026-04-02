@@ -58,6 +58,7 @@
 <!-- ================= DEVICE LIST ================= -->
 <div class="bg-white rounded-xl shadow-sm overflow-hidden">
 
+    {{-- Form hanya aktif untuk admin; user hanya melihat struktur yang sama tapi tanpa interaksi --}}
     <form id="maintenanceForm" action="{{ route('maintenance.store') }}" method="POST">
         @csrf
 
@@ -65,7 +66,11 @@
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
             <div>
                 <h3 class="text-lg font-bold text-[#243B7C]">Device List</h3>
-                <p class="text-xs text-gray-400 mt-0.5">Centang device yang sudah selesai dimaintenance hari ini</p>
+                @if(auth()->user()->isAdmin())
+                    <p class="text-xs text-gray-400 mt-0.5">Centang device yang sudah selesai dimaintenance hari ini</p>
+                @else
+                    <p class="text-xs text-gray-400 mt-0.5">Daftar perangkat dan status maintenance hari ini</p>
+                @endif
             </div>
 
             {{-- Search --}}
@@ -85,10 +90,15 @@
             <table class="w-full text-sm">
                 <thead class="text-[#243B7C] font-semibold border-b-2 border-gray-200 sticky top-0 z-10 bg-white">
                     <tr>
+                        {{-- Kolom checkbox: admin menampilkan checkbox interaktif, user hanya melihat ikon status --}}
                         <th class="px-6 py-3 text-left w-10">
-                            <input type="checkbox" id="checkAll"
-                                class="w-4 h-4 cursor-pointer accent-blue-700"
-                                title="Pilih semua">
+                            @if(auth()->user()->isAdmin())
+                                <input type="checkbox" id="checkAll"
+                                    class="w-4 h-4 cursor-pointer accent-blue-700"
+                                    title="Pilih semua">
+                            @else
+                                <span class="text-xs text-gray-400">✓</span>
+                            @endif
                         </th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">Device Name</th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">IP Address</th>
@@ -106,15 +116,24 @@
                     <tr class="device-row hover:bg-gray-50 transition {{ $isDoneToday ? 'bg-green-50' : '' }}"
                         data-name="{{ strtolower($device['host']) }}">
 
-                        {{-- Checkbox --}}
+                        {{-- Checkbox: interaktif untuk admin, read-only untuk user --}}
                         <td class="px-6 py-3">
-                            <input type="checkbox"
-                                name="devices[]"
-                                value="{{ $device['hostid'] }}"
-                                data-name="{{ $device['host'] }}"
-                                class="device-cb w-4 h-4 cursor-pointer accent-blue-700
-                                       {{ $isDoneToday ? 'opacity-40 cursor-not-allowed' : '' }}"
-                                {{ $isDoneToday ? 'disabled' : '' }}>
+                            @if(auth()->user()->isAdmin())
+                                <input type="checkbox"
+                                    name="devices[]"
+                                    value="{{ $device['hostid'] }}"
+                                    data-name="{{ $device['host'] }}"
+                                    class="device-cb w-4 h-4 cursor-pointer accent-blue-700
+                                           {{ $isDoneToday ? 'opacity-40 cursor-not-allowed' : '' }}"
+                                    {{ $isDoneToday ? 'disabled' : '' }}>
+                            @else
+                                {{-- User hanya melihat ikon status, tidak bisa mencentang --}}
+                                @if($isDoneToday)
+                                    <span class="text-green-500 font-bold text-base">✓</span>
+                                @else
+                                    <span class="inline-block w-4 h-4 rounded border border-gray-300 bg-gray-50"></span>
+                                @endif
+                            @endif
                         </td>
 
                         {{-- Device Name --}}
@@ -189,7 +208,7 @@
             </table>
         </div>
 
-        {{-- Action Bar --}}
+        {{-- Action Bar: hanya tampil untuk admin --}}
         @if(auth()->user()->isAdmin())
         <div class="flex items-center justify-between px-6 py-3 bg-gray-50 border-t border-gray-200">
             <div class="text-sm text-gray-500">
@@ -213,7 +232,8 @@
 </div>
 
 
-<!-- ================= MODAL KONFIRMASI ================= -->
+<!-- ================= MODAL KONFIRMASI (admin only) ================= -->
+@if(auth()->user()->isAdmin())
 <div id="confirmModal"
      class="fixed inset-0 bg-black bg-opacity-20 backdrop-blur-[2px] z-50 hidden flex items-center justify-center">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-8">
@@ -251,11 +271,22 @@
         </div>
     </div>
 </div>
+@endif
 
 
 <!-- ================= SCRIPT ================= -->
 <script>
-// ─── Checkbox logic ───────────────────────────────────────────
+// ─── Search ───────────────────────────────────────────────────
+document.getElementById('searchInput').addEventListener('input', function () {
+    const q = this.value.toLowerCase().trim();
+    document.querySelectorAll('.device-row').forEach(row => {
+        const name = row.dataset.name || '';
+        row.style.display = name.includes(q) ? '' : 'none';
+    });
+});
+
+@if(auth()->user()->isAdmin())
+// ─── Checkbox logic (admin only) ──────────────────────────────
 function getCheckboxes() {
     return [...document.querySelectorAll('.device-cb:not([disabled])')];
 }
@@ -298,15 +329,6 @@ document.querySelectorAll('.device-cb').forEach(cb => {
     cb.addEventListener('change', updateUI);
 });
 
-// ─── Search ───────────────────────────────────────────────────
-document.getElementById('searchInput').addEventListener('input', function () {
-    const q = this.value.toLowerCase().trim();
-    document.querySelectorAll('.device-row').forEach(row => {
-        const name = row.dataset.name || '';
-        row.style.display = name.includes(q) ? '' : 'none';
-    });
-});
-
 // ─── Confirm modal ────────────────────────────────────────────
 function openConfirmModal() {
     const checked = getCheckboxes().filter(c => c.checked);
@@ -333,6 +355,7 @@ function closeConfirmModal() {
 document.getElementById('confirmModal').addEventListener('click', function (e) {
     if (e.target === this) closeConfirmModal();
 });
+@endif
 </script>
 
 @endsection

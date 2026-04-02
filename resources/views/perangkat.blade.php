@@ -51,6 +51,8 @@
         <option value="JMX">JMX</option>
     </select>
 
+    {{-- Tombol Add hanya ditampilkan untuk admin --}}
+    @if(auth()->user()->isAdmin())
     <button onclick="openAddZabbix()"
         class="ml-auto flex items-center gap-2 px-4 py-2 bg-[#243B7C] text-white text-sm
                font-semibold rounded-lg hover:bg-blue-800 transition whitespace-nowrap">
@@ -58,6 +60,7 @@
              viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
         Add
     </button>
+    @endif
 
 </div>
 
@@ -78,7 +81,10 @@
             <th class="px-6 py-4 text-left">Serial</th>
             <th class="px-6 py-4 text-left">OS</th>
             <th class="px-6 py-4 text-left">Location</th>
+            {{-- Kolom Action hanya ditampilkan untuk admin --}}
+            @if(auth()->user()->isAdmin())
             <th class="px-6 py-4 text-left">Action</th>
+            @endif
         </tr>
     </thead>
 
@@ -113,6 +119,8 @@
             <td class="px-6 py-4 text-xs text-gray-700">{{ $item['os'] ?: '-' }}</td>
             <td class="px-6 py-4 text-xs text-gray-700">{{ $item['location'] ?: '-' }}</td>
 
+            {{-- Tombol Action (Detail dengan Edit & Hapus) hanya untuk admin --}}
+            @if(auth()->user()->isAdmin())
             <td class="px-6 py-4">
                 <div class="flex items-center gap-2">
                     <button onclick="showDetail({{ json_encode($item) }})"
@@ -125,11 +133,12 @@
                     </button>
                 </div>
             </td>
+            @endif
 
         </tr>
         @empty
         <tr>
-            <td colspan="11" class="px-6 py-12 text-center text-gray-400">
+            <td colspan="{{ auth()->user()->isAdmin() ? 11 : 10 }}" class="px-6 py-12 text-center text-gray-400">
                 No hosts found from Zabbix.
             </td>
         </tr>
@@ -140,6 +149,9 @@
 <div id="emptyDevice" class="hidden py-12 text-center text-gray-400 text-sm">No device found.</div>
 </div>
 </div>
+
+{{-- Semua modal dan script CRUD hanya dirender untuk admin --}}
+@if(auth()->user()->isAdmin())
 
 <!-- ===================================================================
      MODAL DETAIL
@@ -443,6 +455,8 @@
     </div>
 </div>
 
+@endif {{-- end @if(auth()->user()->isAdmin()) --}}
+
 <!-- ================= SCRIPT ================= -->
 <script>
 let currentDevice = null;
@@ -466,6 +480,7 @@ function filterDevice() {
     document.getElementById('emptyDevice').classList.toggle('hidden', visible > 0);
 }
 
+@if(auth()->user()->isAdmin())
 // ── Detail Modal ─────────────────────────────────────────
 function showDetail(d) {
     currentDevice = d;
@@ -649,6 +664,7 @@ function updateDefaultPort(ifaceType) {
     const ports = { ZBX: '10050', SNMP: '161', IPMI: '623', JMX: '12345' };
     document.getElementById('zbx_port').value = ports[ifaceType] ?? '10050';
 }
+@endif {{-- end @if(auth()->user()->isAdmin()) --}}
 
 // ── Auto-dismiss flash ────────────────────────────────────
 ['flashSuccess', 'flashError'].forEach(id => {
