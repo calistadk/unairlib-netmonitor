@@ -8,7 +8,7 @@
 </h2>
 
 <!-- ================= SUMMARY CARD ================= -->
-<div class="grid grid-cols-3 gap-6 mb-10">
+<div class="grid grid-cols-4 gap-6 mb-10">
 
     <div class="bg-white border-2 border-black rounded-xl p-6 shadow-sm">
         <p class="text-gray-600">Total Devices</p>
@@ -23,6 +23,11 @@
     <div class="bg-white border-2 border-red-500 rounded-xl p-6 shadow-sm">
         <p class="text-gray-600">Not Available</p>
         <h3 class="text-4xl font-bold text-red-600 mt-2">{{ $offline }}</h3>
+    </div>
+
+    <div class="bg-white border-2 border-yellow-400 rounded-xl p-6 shadow-sm">
+        <p class="text-gray-600">Unknown</p>
+        <h3 class="text-4xl font-bold text-yellow-500 mt-2">{{ $total - $online - $offline }}</h3>
     </div>
 
 </div>
