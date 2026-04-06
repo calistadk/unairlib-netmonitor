@@ -52,6 +52,16 @@
         <option value="JMX">JMX</option>
     </select>
 
+    {{-- Filter Group --}}
+    <select id="filterGroup" onchange="filterMonitoring()"
+        class="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm
+        focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer">
+        <option value="">All Group</option>
+        @foreach(collect($perangkat)->pluck('groups')->filter()->unique()->sort() as $group)
+            <option value="{{ $group }}">{{ $group }}</option>
+        @endforeach
+    </select>
+
     {{-- Tombol Add hanya ditampilkan untuk admin --}}
     @if(auth()->user()->isAdmin())
     <button onclick="openAddZabbix()"
@@ -77,6 +87,7 @@
             <th class="px-6 py-4 text-left">Name</th>
             <th class="px-6 py-4 text-left">Interface</th>
             <th class="px-6 py-4 text-left">Availability</th>
+            <th class="px-6 py-4 text-left">Group</th>
             {{-- Kolom Action hanya ditampilkan untuk admin --}}
             @if(auth()->user()->isAdmin())
             <th class="px-6 py-4 text-left">Action</th>
@@ -90,7 +101,8 @@
         <tr class="hover:bg-gray-50 transition monitoring-row"
             data-status="{{ $item['status'] }}"
             data-iface="{{ $item['iface_type'] }}"
-            data-search="{{ strtolower($item['id'].' '.$item['nama'].' '.$item['interface'].' '.$item['iface_type']) }}">
+            data-group="{{ $item['groups'] ?? '' }}"
+            data-search="{{ strtolower(($item['id'] ?? '').' '.($item['nama'] ?? '').' '.($item['interface'] ?? '').' '.($item['iface_type'] ?? '').' '.($item['groups'] ?? '')) }}">
 
             <td class="px-6 py-4 text-gray-500">{{ $loop->iteration }}</td>
             <td class="px-6 py-4 text-gray-700">{{ $item['id'] }}</td>
@@ -112,6 +124,8 @@
                     {{ $item['iface_type'] }}
                 </span>
             </td>
+
+            <td class="px-6 py-4 text-gray-600 text-xs">{{ $item['groups'] ?? '-' }}</td>
 
             {{-- Tombol Action (Detail & Hapus) hanya untuk admin --}}
             @if(auth()->user()->isAdmin())
@@ -315,13 +329,15 @@ function filterMonitoring() {
     const search = document.getElementById('searchMonitoring').value.toLowerCase();
     const status = document.getElementById('filterStatus').value;
     const iface  = document.getElementById('filterIface').value;
+    const group  = document.getElementById('filterGroup').value;
     const rows   = document.querySelectorAll('.monitoring-row');
     let visible  = 0;
 
     rows.forEach(row => {
         const show = row.dataset.search.includes(search)
             && (status === '' || row.dataset.status === status)
-            && (iface  === '' || row.dataset.iface  === iface);
+            && (iface  === '' || row.dataset.iface  === iface)
+            && (group  === '' || row.dataset.group  === group);
         row.classList.toggle('hidden', !show);
         if (show) visible++;
     });

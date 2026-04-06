@@ -30,6 +30,7 @@ class MaintenanceController extends Controller
                 "params"  => [
                     "output"           => ["hostid", "host"],
                     "selectInterfaces" => ["ip", "available"],
+                    "selectGroups"     => ["name"],          // ← tambahkan ini
                 ],
                 "auth" => $auth,
                 "id"   => 2,
@@ -38,10 +39,17 @@ class MaintenanceController extends Controller
             return collect($res->json()['result'] ?? [])
                 ->map(function ($h) {
                     $avail = $h['interfaces'][0]['available'] ?? 0;
+
+                    // Gabungkan semua nama group jadi satu string
+                    $groups = collect($h['groups'] ?? [])
+                        ->pluck('name')
+                        ->implode(', ');
+
                     return [
                         'hostid' => $h['hostid'],
                         'host'   => $h['host'],
                         'ip'     => $h['interfaces'][0]['ip'] ?? '-',
+                        'groups' => $groups,                 // ← tambahkan ini
                         'status' => match((int) $avail) {
                             1       => 'Online',
                             2       => 'Offline',

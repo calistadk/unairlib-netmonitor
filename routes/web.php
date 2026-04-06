@@ -261,6 +261,7 @@ Route::middleware('auth')->group(function () {
                 "params"  => [
                     "output"           => ["hostid", "host"],
                     "selectInterfaces" => ["available", "ip", "port", "type"],
+                    "selectGroups"     => ["name"],  // ← tambahkan ini
                 ],
                 "auth" => $auth,
                 "id"   => 2,
@@ -293,12 +294,18 @@ Route::middleware('auth')->group(function () {
                     default => '-',
                 };
 
+                // Gabungkan semua nama group jadi satu string, misal: "Linux Servers, Web Servers"
+                $groups = collect($h['groups'] ?? [])
+                    ->pluck('name')
+                    ->implode(', ');
+
                 $perangkat[] = [
                     "id"         => $h["hostid"],
                     "nama"       => $h["host"],
                     "interface"  => ($iface['ip'] ?? '-') . ':' . ($iface['port'] ?? ''),
                     "iface_type" => $ifaceType,
                     "status"     => $status,
+                    "groups"     => $groups,  // ← tambahkan ini
                 ];
             }
 

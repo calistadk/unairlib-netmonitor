@@ -72,15 +72,37 @@
                 @endif
             </div>
 
-            {{-- Search --}}
+            {{-- Search & Filters --}}
             <div class="flex items-center gap-3">
+
+                {{-- Search --}}
                 <div class="relative">
                     <input type="text" id="searchInput" placeholder="Search device..."
-                        class="pl-8 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 w-52">
+                        class="pl-8 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 w-48">
                     <svg class="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                     </svg>
                 </div>
+
+                {{-- Filter Group --}}
+                <select id="filterGroup" onchange="applyFilters()"
+                    class="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm
+                           focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer">
+                    <option value="">All Group</option>
+                    @foreach(collect($zbxDevices)->pluck('groups')->filter()->unique()->sort() as $group)
+                        <option value="{{ $group }}">{{ $group }}</option>
+                    @endforeach
+                </select>
+
+                {{-- Filter Maintenance Status --}}
+                <select id="filterMaintStatus" onchange="applyFilters()"
+                    class="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm
+                           focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer">
+                    <option value="">All Status</option>
+                    <option value="done">Done</option>
+                    <option value="pending">Pending</option>
+                </select>
+
             </div>
         </div>
 
@@ -100,6 +122,7 @@
                         </th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">Device Name</th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">IP Address</th>
+                        <th class="px-6 py-3 text-left whitespace-nowrap">Group</th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">Availability</th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">Maintenance Status</th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">Last Maintenance</th>
@@ -115,7 +138,9 @@
                         $nextMaint   = $lastMaint?->next_maintenance;
                     @endphp
                     <tr class="device-row hover:bg-gray-50 transition"
-                        data-name="{{ strtolower($device['host']) }}">
+                        data-name="{{ strtolower($device['host']) }}"
+                        data-group="{{ $device['groups'] ?? '' }}"
+                        data-maint-status="{{ $isDoneToday ? 'done' : 'pending' }}">
 
                         {{-- Checkbox --}}
                         <td class="px-6 py-3">
@@ -146,7 +171,12 @@
                             {{ $device['ip'] }}
                         </td>
 
-                        {{-- Availability (same style as monitoring page) --}}
+                        {{-- Group --}}
+                        <td class="px-6 py-3 text-gray-600 text-xs whitespace-nowrap">
+                            {{ $device['groups'] ?? '-' }}
+                        </td>
+
+                        {{-- Availability --}}
                         <td class="px-6 py-3 whitespace-nowrap">
                             @php
                                 $availBadge = match($device['status']) {
@@ -214,7 +244,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="8" class="px-6 py-16 text-center text-gray-400 text-sm">
+                        <td colspan="9" class="px-6 py-16 text-center text-gray-400 text-sm">
                             <svg class="w-10 h-10 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                             </svg>
@@ -224,6 +254,10 @@
                     @endforelse
                 </tbody>
             </table>
+
+            <div id="emptyFilter" class="hidden py-12 text-center text-gray-400 text-sm">
+                No devices match the selected filters.
+            </div>
         </div>
 
         {{-- Action Bar: admin only --}}
@@ -295,14 +329,29 @@
 
 <!-- ================= SCRIPT ================= -->
 <script>
-// ─── Search ───────────────────────────────────────────────────
-document.getElementById('searchInput').addEventListener('input', function () {
-    const q = this.value.toLowerCase().trim();
-    document.querySelectorAll('.device-row').forEach(row => {
-        const name = row.dataset.name || '';
-        row.style.display = name.includes(q) ? '' : 'none';
+// ─── Unified filter function ───────────────────────────────────
+function applyFilters() {
+    const search      = document.getElementById('searchInput').value.toLowerCase().trim();
+    const group       = document.getElementById('filterGroup').value;
+    const maintStatus = document.getElementById('filterMaintStatus').value;
+
+    const rows = document.querySelectorAll('.device-row');
+    let visible = 0;
+
+    rows.forEach(row => {
+        const nameMatch   = (row.dataset.name  || '').includes(search);
+        const groupMatch  = group       === '' || row.dataset.group       === group;
+        const statusMatch = maintStatus === '' || row.dataset.maintStatus === maintStatus;
+
+        const show = nameMatch && groupMatch && statusMatch;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
     });
-});
+
+    document.getElementById('emptyFilter').classList.toggle('hidden', visible > 0);
+}
+
+document.getElementById('searchInput').addEventListener('input', applyFilters);
 
 @if(auth()->user()->isAdmin())
 // ─── Checkbox logic (admin only) ──────────────────────────────
