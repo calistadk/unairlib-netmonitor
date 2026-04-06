@@ -73,7 +73,7 @@
         <tr>
             <th class="px-6 py-4 text-left">No.</th>
             <th class="px-6 py-4 text-left">Host</th>
-            <th class="px-6 py-4 text-left">IP</th>
+            <th class="px-6 py-4 text-left">Interface</th>
             <th class="px-6 py-4 text-left">Availability</th>
             <th class="px-6 py-4 text-left">Group</th>
             <th class="px-6 py-4 text-left">Type</th>

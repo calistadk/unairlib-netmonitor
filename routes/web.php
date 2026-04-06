@@ -248,54 +248,71 @@ Route::middleware('auth')->group(function () {
         $auth = getZabbixToken();
 
         if (!$auth) {
-            return view('monitoring', ['perangkat' => []]);
+            return view('monitoring', [
+                'perangkat'  => [],
+                'zabbixDown' => true,
+            ]);
         }
 
-        $hosts = Http::post(ZABBIX_API, [
-            "jsonrpc" => "2.0",
-            "method"  => "host.get",
-            "params"  => [
-                "output"           => ["hostid", "host"],
-                "selectInterfaces" => ["available", "ip", "port", "type"],
-            ],
-            "auth" => $auth,
-            "id"   => 2,
-        ]);
+        try {
+            $hosts = Http::timeout(5)->post(ZABBIX_API, [
+                "jsonrpc" => "2.0",
+                "method"  => "host.get",
+                "params"  => [
+                    "output"           => ["hostid", "host"],
+                    "selectInterfaces" => ["available", "ip", "port", "type"],
+                ],
+                "auth" => $auth,
+                "id"   => 2,
+            ]);
 
-        $data = $hosts->json()['result'] ?? [];
+            $data = $hosts->json()['result'] ?? [];
 
-        if (empty($data)) {
-            return view('monitoring', ['perangkat' => []]);
+            if (empty($data)) {
+                return view('monitoring', [
+                    'perangkat'  => [],
+                    'zabbixDown' => true,
+                ]);
+            }
+
+            $perangkat = [];
+
+            foreach ($data as $h) {
+                $iface        = $h['interfaces'][0] ?? [];
+                $availability = $iface['available'] ?? 0;
+
+                if ($availability == 1)      $status = "Online";
+                elseif ($availability == 2)  $status = "Offline";
+                else                         $status = "Unknown";
+
+                $ifaceType = match((int)($iface['type'] ?? 0)) {
+                    1       => 'ZBX',
+                    2       => 'SNMP',
+                    3       => 'IPMI',
+                    4       => 'JMX',
+                    default => '-',
+                };
+
+                $perangkat[] = [
+                    "id"         => $h["hostid"],
+                    "nama"       => $h["host"],
+                    "interface"  => ($iface['ip'] ?? '-') . ':' . ($iface['port'] ?? ''),
+                    "iface_type" => $ifaceType,
+                    "status"     => $status,
+                ];
+            }
+
+            return view('monitoring', [
+                'perangkat'  => $perangkat,
+                'zabbixDown' => false,
+            ]);
+
+        } catch (\Exception $e) {
+            return view('monitoring', [
+                'perangkat'  => [],
+                'zabbixDown' => true,
+            ]);
         }
-
-        $perangkat = [];
-
-        foreach ($data as $h) {
-            $iface        = $h['interfaces'][0] ?? [];
-            $availability = $iface['available'] ?? 0;
-
-            if ($availability == 1)      $status = "Online";
-            elseif ($availability == 2)  $status = "Offline";
-            else                         $status = "Unknown";
-
-            $ifaceType = match((int)($iface['type'] ?? 0)) {
-                1       => 'ZBX',
-                2       => 'SNMP',
-                3       => 'IPMI',
-                4       => 'JMX',
-                default => '-',
-            };
-
-            $perangkat[] = [
-                "id"         => $h["hostid"],
-                "nama"       => $h["host"],
-                "interface"  => ($iface['ip'] ?? '-') . ':' . ($iface['port'] ?? ''),
-                "iface_type" => $ifaceType,
-                "status"     => $status,
-            ];
-        }
-
-        return view('monitoring', compact('perangkat'));
     });
 
     Route::get('/monitoring/{hostid}', function (string $hostid) {
@@ -485,20 +502,19 @@ Route::middleware('auth')->group(function () {
     // ── LOG ───────────────────────────────────────────────────
     Route::get('/log', [ActivityLogController::class, 'index'])->name('log.index');
 
+    // ── MAINTENANCE (view — semua user login) ─────────────────
+    Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance.index');
+
     // ── ADMIN ONLY ────────────────────────────────────────────
     Route::middleware('admin')->group(function () {
 
         // Log
         Route::post('/log', [ActivityLogController::class, 'store'])->name('log.store');
 
-       // Maintenance (view — semua user login)
-Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance.index');
- 
-// Maintenance (aksi — admin only)
-Route::middleware('admin')->group(function () {
-    Route::post('/maintenance',        [MaintenanceController::class, 'store'])->name('maintenance.store');
-    Route::delete('/maintenance/{id}', [MaintenanceController::class, 'destroy'])->name('maintenance.destroy');
-});
+        // Maintenance (aksi — admin only)
+        Route::post('/maintenance',        [MaintenanceController::class, 'store'])->name('maintenance.store');
+        Route::delete('/maintenance/{id}', [MaintenanceController::class, 'destroy'])->name('maintenance.destroy');
+
         // Zabbix Host — store
         Route::post('/zabbix/host', function (Request $request) {
 
@@ -582,7 +598,7 @@ Route::middleware('admin')->group(function () {
                 ]];
             }
 
-            $res    = Http::post(ZABBIX_API, [
+            $res = Http::post(ZABBIX_API, [
                 "jsonrpc" => "2.0",
                 "method"  => "host.update",
                 "params"  => $params,

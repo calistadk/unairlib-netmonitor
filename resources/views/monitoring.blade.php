@@ -139,8 +139,22 @@
     </tbody>
 </table>
 
-<div id="emptyMonitoring" class="hidden py-12 text-center text-gray-400 text-sm">
-    No device found.
+<div id="emptyMonitoring" class="{{ count($perangkat) > 0 ? 'hidden' : '' }} py-16 text-center text-gray-400 text-sm">
+    @if($zabbixDown)
+        <svg class="w-10 h-10 mx-auto mb-3 text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
+        <span class="block text-red-400 font-semibold mb-1">Zabbix Server Unreachable</span>
+        <span class="text-xs text-gray-400">Could not connect to Zabbix. Please check the server and try again.</span>
+    @else
+        <svg class="w-10 h-10 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+        </svg>
+        <span class="block mb-1">No devices found.</span>
+        <span class="text-xs text-gray-400">Make sure Zabbix is connected.</span>
+    @endif
 </div>
 </div>
 </div>

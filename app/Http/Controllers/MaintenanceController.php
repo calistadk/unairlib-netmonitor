@@ -65,28 +65,25 @@ class MaintenanceController extends Controller
     {
         $today      = Carbon::today();
         $zbxDevices = $this->getZabbixDevices();
+        $hostIds    = collect($zbxDevices)->pluck('hostid')->all();
 
-        // Ambil semua maintenance yang done hari ini
-        $todayDoneRecords = MaintenanceSchedule::with('doneBy')
-            ->whereDate('done_at', $today)
-            ->where('is_done', true)
-            ->get();
-
-        // Map: hostid => record (untuk cek apakah device sudah done hari ini)
-        $doneTodayMap = $todayDoneRecords->keyBy('device_id');
-
-        // Map: hostid => record maintenance terakhir (untuk kolom Last Maintenance)
-        $hostIds = collect($zbxDevices)->pluck('hostid')->all();
-
+        // Ambil record maintenance TERAKHIR per device (yang sudah done)
         $lastMaintenanceMap = MaintenanceSchedule::with('doneBy')
             ->whereIn('device_id', $hostIds)
             ->where('is_done', true)
             ->orderBy('done_at', 'desc')
             ->get()
             ->groupBy('device_id')
-            ->map(fn($records) => $records->first()); // ambil yang paling baru per device
+            ->map(fn($records) => $records->first());
 
-        $doneToday = $todayDoneRecords->count();
+        // Device dianggap "sudah maintenance" kalau next_maintenance masih di masa depan (belum lewat)
+        // Artinya: done_at ada, dan next_maintenance > hari ini
+        $doneTodayMap = $lastMaintenanceMap->filter(
+            fn($record) => $record->next_maintenance
+                        && Carbon::parse($record->next_maintenance)->greaterThan($today)
+        );
+
+        $doneToday = $doneTodayMap->count();
 
         return view('maintenance', compact(
             'zbxDevices',
@@ -98,8 +95,6 @@ class MaintenanceController extends Controller
 
     // ─────────────────────────────────────────────
     //  STORE — catat maintenance dari checklist
-    //  Menerima array device[] yang dicentang,
-    //  langsung mark done + catat activity log
     // ─────────────────────────────────────────────
     public function store(Request $request)
     {
@@ -109,7 +104,6 @@ class MaintenanceController extends Controller
             'notes'     => 'nullable|string|max:1000',
         ]);
 
-        // Ambil nama device dari Zabbix (supaya ada device_name di DB)
         $zbxDevices = collect($this->getZabbixDevices())->keyBy('hostid');
 
         $today  = Carbon::today();
@@ -120,20 +114,20 @@ class MaintenanceController extends Controller
             $zbxDevice  = $zbxDevices->get($hostId);
             $deviceName = $zbxDevice['host'] ?? $hostId;
 
-            // Hindari duplikat: skip jika device ini sudah done hari ini
+            // Hindari duplikat: skip jika next_maintenance device ini masih di masa depan
             $alreadyDone = MaintenanceSchedule::where('device_id', $hostId)
-                ->whereDate('done_at', $today)
                 ->where('is_done', true)
+                ->where('next_maintenance', '>', $today)
                 ->exists();
 
             if ($alreadyDone) continue;
 
-            // Buat record maintenance & langsung tandai done
-            $schedule = MaintenanceSchedule::create([
+            // Buat record maintenance baru & langsung tandai done
+            MaintenanceSchedule::create([
                 'device_id'        => $hostId,
                 'device_name'      => $deviceName,
                 'scheduled_date'   => $today,
-                'next_maintenance' => $today->copy()->addDays(3),
+                'next_maintenance' => Carbon::parse($doneAt)->addDays(3),
                 'is_done'          => true,
                 'done_by'          => auth()->id(),
                 'done_at'          => $doneAt,
@@ -156,10 +150,10 @@ class MaintenanceController extends Controller
         }
 
         if ($count === 0) {
-            return back()->with('success', 'Semua device yang dipilih sudah tercatat maintenance hari ini.');
+            return back()->with('success', 'Semua device yang dipilih sudah tercatat maintenance dan belum melewati periode 3 hari.');
         }
 
-        return back()->with('success', $count . ' device berhasil dicatat maintenance.');
+        return back()->with('success', $count . ' device berhasil dicatat maintenance. Akan muncul kembali dalam 3 hari.');
     }
 
     // ─────────────────────────────────────────────

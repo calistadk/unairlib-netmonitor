@@ -36,7 +36,7 @@
             </svg>
         </div>
         <div>
-            <p class="text-sm text-gray-500">Done Today</p>
+            <p class="text-sm text-gray-500">Maintained</p>
             <p class="text-2xl font-bold text-green-600">{{ $doneToday }}</p>
         </div>
     </div>
@@ -48,7 +48,7 @@
             </svg>
         </div>
         <div>
-            <p class="text-sm text-gray-500">Belum Maintenance</p>
+            <p class="text-sm text-gray-500">Need Maintenance</p>
             <p class="text-2xl font-bold text-yellow-600">{{ count($zbxDevices) - $doneToday }}</p>
         </div>
     </div>
@@ -58,7 +58,6 @@
 <!-- ================= DEVICE LIST ================= -->
 <div class="bg-white rounded-xl shadow-sm overflow-hidden">
 
-    {{-- Form hanya aktif untuk admin; user hanya melihat struktur yang sama tapi tanpa interaksi --}}
     <form id="maintenanceForm" action="{{ route('maintenance.store') }}" method="POST">
         @csrf
 
@@ -67,16 +66,16 @@
             <div>
                 <h3 class="text-lg font-bold text-[#243B7C]">Device List</h3>
                 @if(auth()->user()->isAdmin())
-                    <p class="text-xs text-gray-400 mt-0.5">Centang device yang sudah selesai dimaintenance hari ini</p>
+                    <p class="text-xs text-gray-400 mt-0.5">Check devices that have been maintained. Devices will automatically reappear after 3 days.</p>
                 @else
-                    <p class="text-xs text-gray-400 mt-0.5">Daftar perangkat dan status maintenance hari ini</p>
+                    <p class="text-xs text-gray-400 mt-0.5">List of devices and their maintenance status. Resets automatically every 3 days.</p>
                 @endif
             </div>
 
             {{-- Search --}}
             <div class="flex items-center gap-3">
                 <div class="relative">
-                    <input type="text" id="searchInput" placeholder="Cari device..."
+                    <input type="text" id="searchInput" placeholder="Search device..."
                         class="pl-8 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 w-52">
                     <svg class="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -90,33 +89,35 @@
             <table class="w-full text-sm">
                 <thead class="text-[#243B7C] font-semibold border-b-2 border-gray-200 sticky top-0 z-10 bg-white">
                     <tr>
-                        {{-- Kolom checkbox: admin menampilkan checkbox interaktif, user hanya melihat ikon status --}}
                         <th class="px-6 py-3 text-left w-10">
                             @if(auth()->user()->isAdmin())
                                 <input type="checkbox" id="checkAll"
                                     class="w-4 h-4 cursor-pointer accent-blue-700"
-                                    title="Pilih semua">
+                                    title="Select all">
                             @else
                                 <span class="text-xs text-gray-400">✓</span>
                             @endif
                         </th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">Device Name</th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">IP Address</th>
-                        <th class="px-6 py-3 text-left whitespace-nowrap">Status</th>
+                        <th class="px-6 py-3 text-left whitespace-nowrap">Availability</th>
+                        <th class="px-6 py-3 text-left whitespace-nowrap">Maintenance Status</th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">Last Maintenance</th>
+                        <th class="px-6 py-3 text-left whitespace-nowrap">Next Maintenance</th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">Done By</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100" id="deviceTableBody">
                     @forelse ($zbxDevices as $device)
                     @php
-                        $lastMaint = $lastMaintenanceMap[$device['hostid']] ?? null;
-                        $isDoneToday = $doneTodayMap[$device['hostid']] ?? false;
+                        $lastMaint   = $lastMaintenanceMap[$device['hostid']] ?? null;
+                        $isDoneToday = isset($doneTodayMap[$device['hostid']]);
+                        $nextMaint   = $lastMaint?->next_maintenance;
                     @endphp
-                    <tr class="device-row hover:bg-gray-50 transition {{ $isDoneToday ? 'bg-green-50' : '' }}"
+                    <tr class="device-row hover:bg-gray-50 transition"
                         data-name="{{ strtolower($device['host']) }}">
 
-                        {{-- Checkbox: interaktif untuk admin, read-only untuk user --}}
+                        {{-- Checkbox --}}
                         <td class="px-6 py-3">
                             @if(auth()->user()->isAdmin())
                                 <input type="checkbox"
@@ -127,7 +128,6 @@
                                            {{ $isDoneToday ? 'opacity-40 cursor-not-allowed' : '' }}"
                                     {{ $isDoneToday ? 'disabled' : '' }}>
                             @else
-                                {{-- User hanya melihat ikon status, tidak bisa mencentang --}}
                                 @if($isDoneToday)
                                     <span class="text-green-500 font-bold text-base">✓</span>
                                 @else
@@ -139,11 +139,6 @@
                         {{-- Device Name --}}
                         <td class="px-6 py-3 font-medium text-gray-800 whitespace-nowrap">
                             {{ $device['host'] }}
-                            @if($isDoneToday)
-                                <span class="ml-2 px-1.5 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700">
-                                    ✓ Done
-                                </span>
-                            @endif
                         </td>
 
                         {{-- IP --}}
@@ -151,22 +146,29 @@
                             {{ $device['ip'] }}
                         </td>
 
-                        {{-- Status Zabbix --}}
+                        {{-- Availability (same style as monitoring page) --}}
                         <td class="px-6 py-3 whitespace-nowrap">
-                            @if($device['status'] === 'Online')
-                                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
-                                    Online
-                                </span>
-                            @elseif($device['status'] === 'Offline')
-                                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-600">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-red-500 inline-block"></span>
-                                    Offline
+                            @php
+                                $availBadge = match($device['status']) {
+                                    'Online'  => 'bg-green-500',
+                                    'Offline' => 'bg-red-500',
+                                    default   => 'bg-yellow-400',
+                                };
+                            @endphp
+                            <span class="text-white text-xs font-bold px-2 py-1 rounded {{ $availBadge }}">
+                                {{ $device['status'] }}
+                            </span>
+                        </td>
+
+                        {{-- Maintenance Status --}}
+                        <td class="px-6 py-3 whitespace-nowrap">
+                            @if($isDoneToday)
+                                <span class="text-white text-xs font-bold px-2 py-1 rounded bg-green-500">
+                                    Done
                                 </span>
                             @else
-                                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block"></span>
-                                    Unknown
+                                <span class="text-white text-xs font-bold px-2 py-1 rounded bg-yellow-500">
+                                    Pending
                                 </span>
                             @endif
                         </td>
@@ -179,7 +181,23 @@
                                     {{ $lastMaint->done_at ? $lastMaint->done_at->diffForHumans() : '-' }}
                                 </span>
                             @else
-                                <span class="text-gray-400">Belum pernah</span>
+                                <span class="text-gray-400">Never</span>
+                            @endif
+                        </td>
+
+                        {{-- Next Maintenance --}}
+                        <td class="px-6 py-3 whitespace-nowrap text-xs">
+                            @if($nextMaint)
+                                @php $next = \Carbon\Carbon::parse($nextMaint); @endphp
+                                @if($isDoneToday)
+                                    <span class="text-blue-600 font-semibold">{{ $next->format('d M Y') }}</span>
+                                    <span class="block text-gray-400">{{ $next->diffForHumans() }}</span>
+                                @else
+                                    <span class="text-red-500 font-semibold">{{ $next->format('d M Y') }}</span>
+                                    <span class="block text-red-400">Overdue</span>
+                                @endif
+                            @else
+                                <span class="text-gray-400">—</span>
                             @endif
                         </td>
 
@@ -196,11 +214,11 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="px-6 py-16 text-center text-gray-400 text-sm">
+                        <td colspan="8" class="px-6 py-16 text-center text-gray-400 text-sm">
                             <svg class="w-10 h-10 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                             </svg>
-                            Tidak ada device. Pastikan Zabbix terhubung.
+                            No devices found. Make sure Zabbix is connected.
                         </td>
                     </tr>
                     @endforelse
@@ -208,11 +226,11 @@
             </table>
         </div>
 
-        {{-- Action Bar: hanya tampil untuk admin --}}
+        {{-- Action Bar: admin only --}}
         @if(auth()->user()->isAdmin())
         <div class="flex items-center justify-between px-6 py-3 bg-gray-50 border-t border-gray-200">
             <div class="text-sm text-gray-500">
-                Dipilih: <span id="selCount" class="font-semibold text-gray-800">0</span> device
+                Selected: <span id="selCount" class="font-semibold text-gray-800">0</span> device(s)
             </div>
             <div class="flex items-center gap-2">
                 <button type="button" onclick="clearSelection()"
@@ -222,7 +240,7 @@
                 <button type="button" id="submitBtn" disabled onclick="openConfirmModal()"
                     class="flex items-center gap-1.5 text-xs px-5 py-2 bg-blue-700 text-white rounded-lg
                            hover:bg-blue-800 transition disabled:opacity-40 disabled:cursor-not-allowed font-semibold">
-                    ✓ Catat Maintenance (<span id="markCount">0</span>)
+                    ✓ Mark as Maintained (<span id="markCount">0</span>)
                 </button>
             </div>
         </div>
@@ -232,18 +250,19 @@
 </div>
 
 
-<!-- ================= MODAL KONFIRMASI (admin only) ================= -->
+<!-- ================= CONFIRM MODAL (admin only) ================= -->
 @if(auth()->user()->isAdmin())
 <div id="confirmModal"
      class="fixed inset-0 bg-black bg-opacity-20 backdrop-blur-[2px] z-50 hidden flex items-center justify-center">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-8">
 
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-xl font-bold text-[#243B7C]">Konfirmasi Maintenance</h3>
+            <h3 class="text-xl font-bold text-[#243B7C]">Confirm Maintenance</h3>
             <button onclick="closeConfirmModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
         </div>
 
-        <p class="text-gray-500 text-sm mb-3">Device yang sudah selesai dimaintenance:</p>
+        <p class="text-gray-500 text-sm mb-1">The following devices will be marked as maintained:</p>
+        <p class="text-xs text-blue-500 mb-3">⏱ They will automatically reappear after 3 days.</p>
 
         <div id="selectedDevicesList"
              class="bg-gray-50 rounded-lg px-4 py-3 mb-4 text-sm text-gray-700 max-h-40 overflow-y-auto space-y-1.5">
@@ -262,11 +281,11 @@
         <div class="flex justify-end gap-3">
             <button type="button" onclick="closeConfirmModal()"
                 class="px-5 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 text-sm">
-                Batal
+                Cancel
             </button>
             <button type="submit" form="maintenanceForm"
                 class="px-5 py-2 rounded-lg bg-blue-700 text-white font-semibold hover:bg-blue-800 text-sm">
-                ✓ Simpan
+                ✓ Save
             </button>
         </div>
     </div>
@@ -299,13 +318,11 @@ function updateUI() {
     document.getElementById('markCount').textContent = count;
     document.getElementById('submitBtn').disabled    = count === 0;
 
-    // Master checkbox state
     const all      = getCheckboxes();
     const checkAll = document.getElementById('checkAll');
     checkAll.indeterminate = count > 0 && count < all.length;
     checkAll.checked       = all.length > 0 && count === all.length;
 
-    // Highlight rows
     getCheckboxes().forEach(cb => {
         const row = cb.closest('tr');
         if (cb.checked) row.classList.add('bg-blue-50');
@@ -318,13 +335,11 @@ function clearSelection() {
     updateUI();
 }
 
-// Master checkbox
 document.getElementById('checkAll').addEventListener('change', function () {
     getCheckboxes().forEach(cb => { cb.checked = this.checked; });
     updateUI();
 });
 
-// Per-row checkbox
 document.querySelectorAll('.device-cb').forEach(cb => {
     cb.addEventListener('change', updateUI);
 });
