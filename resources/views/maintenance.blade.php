@@ -66,9 +66,9 @@
             <div>
                 <h3 class="text-lg font-bold text-[#243B7C]">Device List</h3>
                 @if(auth()->user()->isAdmin())
-                    <p class="text-xs text-gray-400 mt-0.5">Check devices that have been maintained. Devices will automatically reappear after 3 days.</p>
+                    <p class="text-xs text-gray-400 mt-0.5">Check devices that have been maintained. Interval reset will follow your selected schedule.</p>
                 @else
-                    <p class="text-xs text-gray-400 mt-0.5">List of devices and their maintenance status. Resets automatically every 3 days.</p>
+                    <p class="text-xs text-gray-400 mt-0.5">List of devices and their maintenance status. Resets automatically per configured interval.</p>
                 @endif
             </div>
 
@@ -127,15 +127,17 @@
                         <th class="px-6 py-3 text-left whitespace-nowrap">Maintenance Status</th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">Last Maintenance</th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">Next Maintenance</th>
+                        <th class="px-6 py-3 text-left whitespace-nowrap">Interval</th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">Done By</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100" id="deviceTableBody">
                     @forelse ($zbxDevices as $device)
                     @php
-                        $lastMaint   = $lastMaintenanceMap[$device['hostid']] ?? null;
-                        $isDoneToday = isset($doneTodayMap[$device['hostid']]);
-                        $nextMaint   = $lastMaint?->next_maintenance;
+                        $lastMaint    = $lastMaintenanceMap[$device['hostid']] ?? null;
+                        $isDoneToday  = isset($doneTodayMap[$device['hostid']]);
+                        $nextMaint    = $lastMaint?->next_maintenance;
+                        $intervalDays = $lastMaint?->interval_days ?? 3;
                     @endphp
                     <tr class="device-row hover:bg-gray-50 transition"
                         data-name="{{ strtolower($device['host']) }}"
@@ -231,6 +233,20 @@
                             @endif
                         </td>
 
+                        {{-- Interval --}}
+                        <td class="px-6 py-3 whitespace-nowrap text-xs text-gray-500">
+                            @if($lastMaint)
+                                <span class="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-medium">
+                                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                    </svg>
+                                    {{ $intervalDays }}d
+                                </span>
+                            @else
+                                <span class="text-gray-300">—</span>
+                            @endif
+                        </td>
+
                         {{-- Done By --}}
                         <td class="px-6 py-3 text-gray-600 whitespace-nowrap text-xs">
                             @if($isDoneToday && $lastMaint)
@@ -244,7 +260,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="9" class="px-6 py-16 text-center text-gray-400 text-sm">
+                        <td colspan="10" class="px-6 py-16 text-center text-gray-400 text-sm">
                             <svg class="w-10 h-10 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                             </svg>
@@ -296,12 +312,66 @@
         </div>
 
         <p class="text-gray-500 text-sm mb-1">The following devices will be marked as maintained:</p>
-        <p class="text-xs text-blue-500 mb-3">⏱ They will automatically reappear after 3 days.</p>
 
         <div id="selectedDevicesList"
              class="bg-gray-50 rounded-lg px-4 py-3 mb-4 text-sm text-gray-700 max-h-40 overflow-y-auto space-y-1.5">
         </div>
 
+        {{-- ── INTERVAL PICKER (BARU) ───────────────────────────────── --}}
+        <div class="mb-4">
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                Next Maintenance Interval
+            </label>
+
+            {{-- Quick-select buttons --}}
+            <div class="flex gap-2 mb-3" id="intervalPresets">
+                <button type="button" data-days="1"
+                    class="interval-preset flex-1 py-1.5 text-xs font-semibold rounded-lg border border-gray-200
+                           text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition">
+                    1 Day
+                </button>
+                <button type="button" data-days="3"
+                    class="interval-preset flex-1 py-1.5 text-xs font-semibold rounded-lg border border-blue-500
+                           bg-blue-50 text-blue-700 transition">
+                    3 Days
+                </button>
+                <button type="button" data-days="7"
+                    class="interval-preset flex-1 py-1.5 text-xs font-semibold rounded-lg border border-gray-200
+                           text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition">
+                    7 Days
+                </button>
+                <button type="button" data-days="14"
+                    class="interval-preset flex-1 py-1.5 text-xs font-semibold rounded-lg border border-gray-200
+                           text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition">
+                    14 Days
+                </button>
+                <button type="button" data-days="30"
+                    class="interval-preset flex-1 py-1.5 text-xs font-semibold rounded-lg border border-gray-200
+                           text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition">
+                    30 Days
+                </button>
+            </div>
+
+            {{-- Custom input --}}
+            <div class="flex items-center gap-2">
+                <div class="relative flex-1">
+                    <input type="number"
+                        id="intervalCustomInput"
+                        name="interval_days"
+                        form="maintenanceForm"
+                        min="1" max="365"
+                        value="3"
+                        class="w-full pl-3 pr-12 py-2 border border-gray-200 rounded-lg text-sm
+                               focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    <span class="absolute right-3 top-2 text-xs text-gray-400">days</span>
+                </div>
+                <p id="nextMaintPreview" class="text-xs text-blue-600 font-medium whitespace-nowrap">
+                    Next: —
+                </p>
+            </div>
+        </div>
+
+        {{-- Notes --}}
         <div class="mb-5">
             <label class="block text-sm text-gray-700 mb-1">Notes (optional)</label>
             <textarea name="notes"
@@ -393,7 +463,61 @@ document.querySelectorAll('.device-cb').forEach(cb => {
     cb.addEventListener('change', updateUI);
 });
 
-// ─── Confirm modal ────────────────────────────────────────────
+// ─── Interval picker logic ─────────────────────────────────────
+const intervalInput   = document.getElementById('intervalCustomInput');
+const nextMaintPreview = document.getElementById('nextMaintPreview');
+const presetBtns      = document.querySelectorAll('.interval-preset');
+
+function setIntervalValue(days) {
+    intervalInput.value = days;
+    updateNextMaintPreview(days);
+
+    // Update active style on preset buttons
+    presetBtns.forEach(btn => {
+        const isActive = parseInt(btn.dataset.days) === parseInt(days);
+        btn.classList.toggle('border-blue-500',  isActive);
+        btn.classList.toggle('bg-blue-50',        isActive);
+        btn.classList.toggle('text-blue-700',     isActive);
+        btn.classList.toggle('border-gray-200',  !isActive);
+        btn.classList.toggle('text-gray-600',    !isActive);
+    });
+}
+
+function updateNextMaintPreview(days) {
+    const d = parseInt(days);
+    if (!d || d < 1) {
+        nextMaintPreview.textContent = 'Next: —';
+        return;
+    }
+    const next = new Date();
+    next.setDate(next.getDate() + d);
+    const formatted = next.toLocaleDateString('id-ID', {
+        day: '2-digit', month: 'short', year: 'numeric'
+    });
+    nextMaintPreview.textContent = 'Next: ' + formatted;
+}
+
+// Preset button clicks
+presetBtns.forEach(btn => {
+    btn.addEventListener('click', () => setIntervalValue(btn.dataset.days));
+});
+
+// Manual input → clear active preset highlight unless it matches
+intervalInput.addEventListener('input', function () {
+    const val = parseInt(this.value);
+    updateNextMaintPreview(val);
+
+    presetBtns.forEach(btn => {
+        const isActive = parseInt(btn.dataset.days) === val;
+        btn.classList.toggle('border-blue-500', isActive);
+        btn.classList.toggle('bg-blue-50',       isActive);
+        btn.classList.toggle('text-blue-700',    isActive);
+        btn.classList.toggle('border-gray-200', !isActive);
+        btn.classList.toggle('text-gray-600',   !isActive);
+    });
+});
+
+// ─── Confirm modal ─────────────────────────────────────────────
 function openConfirmModal() {
     const checked = getCheckboxes().filter(c => c.checked);
     if (checked.length === 0) return;
@@ -407,6 +531,9 @@ function openConfirmModal() {
                          <span>${cb.dataset.name}</span>`;
         list.appendChild(div);
     });
+
+    // Reset interval to default (3) and update preview
+    setIntervalValue(3);
 
     document.getElementById('notesInput').value = '';
     document.getElementById('confirmModal').classList.remove('hidden');

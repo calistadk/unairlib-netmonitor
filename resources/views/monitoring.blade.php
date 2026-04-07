@@ -52,7 +52,6 @@
         <option value="JMX">JMX</option>
     </select>
 
-    {{-- Filter Group --}}
     <select id="filterGroup" onchange="filterMonitoring()"
         class="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm
         focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer">
@@ -62,7 +61,18 @@
         @endforeach
     </select>
 
-    {{-- Tombol Add hanya ditampilkan untuk admin --}}
+    <select id="filterHealth" onchange="filterMonitoring()"
+        class="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm
+        focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer">
+        <option value="">All Health</option>
+        <option value="Healthy">Healthy</option>
+        <option value="Info">Info</option>
+        <option value="Warning">Warning</option>
+        <option value="Critical">Critical</option>
+        <option value="Down">Down</option>
+        <option value="Unknown">Unknown</option>
+    </select>
+
     @if(auth()->user()->isAdmin())
     <button onclick="openAddZabbix()"
         class="ml-auto flex items-center gap-2 px-4 py-2 bg-[#243B7C] text-white text-sm
@@ -87,8 +97,8 @@
             <th class="px-6 py-4 text-left">Name</th>
             <th class="px-6 py-4 text-left">Interface</th>
             <th class="px-6 py-4 text-left">Availability</th>
+            <th class="px-6 py-4 text-left">Health</th>
             <th class="px-6 py-4 text-left">Group</th>
-            {{-- Kolom Action hanya ditampilkan untuk admin --}}
             @if(auth()->user()->isAdmin())
             <th class="px-6 py-4 text-left">Action</th>
             @endif
@@ -102,6 +112,7 @@
             data-status="{{ $item['status'] }}"
             data-iface="{{ $item['iface_type'] }}"
             data-group="{{ $item['groups'] ?? '' }}"
+            data-health="{{ $item['health']['label'] ?? '' }}"
             data-search="{{ strtolower(($item['id'] ?? '').' '.($item['nama'] ?? '').' '.($item['interface'] ?? '').' '.($item['iface_type'] ?? '').' '.($item['groups'] ?? '')) }}">
 
             <td class="px-6 py-4 text-gray-500">{{ $loop->iteration }}</td>
@@ -125,19 +136,27 @@
                 </span>
             </td>
 
+            {{-- HEALTH --}}
+            <td class="px-6 py-4">
+                @if(isset($item['health']))
+                <span class="text-white text-xs font-bold px-2 py-1 rounded {{ $item['health']['color'] }}">
+                    {{ $item['health']['label'] }}
+                </span>
+                @else
+                <span class="text-gray-400 text-xs">-</span>
+                @endif
+            </td>
+
             <td class="px-6 py-4 text-gray-600 text-xs">{{ $item['groups'] ?? '-' }}</td>
 
-            {{-- Tombol Action (Detail & Hapus) hanya untuk admin --}}
             @if(auth()->user()->isAdmin())
             <td class="px-6 py-4">
                 <div class="flex items-center gap-2">
-                    <!-- Detail -->
                     <a href="/monitoring/{{ $item['id'] }}"
                        class="bg-[#1a1a2e] text-white text-xs px-4 py-2 rounded-lg
                               hover:bg-[#243B7C] transition inline-block">
                         Detail
                     </a>
-                    <!-- Hapus -->
                     <button onclick="confirmDelete('{{ $item['id'] }}', '{{ addslashes($item['nama']) }}')"
                         class="text-red-600 border border-red-300 text-xs px-3 py-2 rounded-lg
                                hover:bg-red-50 transition">
@@ -228,9 +247,7 @@
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-8 max-h-[90vh] overflow-y-auto">
 
         <div class="flex items-center justify-between mb-5">
-            <div>
-                <h3 class="text-xl font-bold text-[#243B7C]">Add Host to Zabbix</h3>
-            </div>
+            <h3 class="text-xl font-bold text-[#243B7C]">Add Host to Zabbix</h3>
             <button onclick="closeAddZabbix()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
         </div>
 
@@ -324,12 +341,12 @@
 
 <!-- ================= SCRIPT ================= -->
 <script>
-/* ---- Filter ---- */
 function filterMonitoring() {
     const search = document.getElementById('searchMonitoring').value.toLowerCase();
     const status = document.getElementById('filterStatus').value;
     const iface  = document.getElementById('filterIface').value;
     const group  = document.getElementById('filterGroup').value;
+    const health = document.getElementById('filterHealth').value;
     const rows   = document.querySelectorAll('.monitoring-row');
     let visible  = 0;
 
@@ -337,7 +354,8 @@ function filterMonitoring() {
         const show = row.dataset.search.includes(search)
             && (status === '' || row.dataset.status === status)
             && (iface  === '' || row.dataset.iface  === iface)
-            && (group  === '' || row.dataset.group  === group);
+            && (group  === '' || row.dataset.group  === group)
+            && (health === '' || row.dataset.health === health);
         row.classList.toggle('hidden', !show);
         if (show) visible++;
     });
@@ -346,7 +364,6 @@ function filterMonitoring() {
 }
 
 @if(auth()->user()->isAdmin())
-/* ---- Delete Modal ---- */
 function confirmDelete(hostid, hostName) {
     document.getElementById('deleteHostName').textContent = hostName;
     document.getElementById('deleteForm').action = '{{ url("/zabbix/host") }}/' + hostid;
@@ -358,9 +375,7 @@ document.getElementById('deleteModal').addEventListener('click', e => {
     if (e.target === e.currentTarget) closeDelete();
 });
 
-/* ---- Add to Zabbix Modal ---- */
 let zabbixOptionsLoaded = false;
-
 function openAddZabbix(prefillIp = '', prefillHost = '') {
     if (prefillIp)   document.getElementById('zbx_ip').value        = prefillIp;
     if (prefillHost) document.getElementById('zbx_host_name').value = prefillHost;
@@ -406,7 +421,6 @@ function updateDefaultPort(ifaceType) {
 }
 @endif
 
-/* Auto-dismiss flash */
 ['flashSuccess', 'flashError'].forEach(id => {
     const el = document.getElementById(id);
     if (el) setTimeout(() => el.style.display = 'none', 5000);

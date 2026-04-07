@@ -30,7 +30,7 @@ class MaintenanceController extends Controller
                 "params"  => [
                     "output"           => ["hostid", "host"],
                     "selectInterfaces" => ["ip", "available"],
-                    "selectGroups"     => ["name"],          // ← tambahkan ini
+                    "selectGroups"     => ["name"],
                 ],
                 "auth" => $auth,
                 "id"   => 2,
@@ -38,18 +38,14 @@ class MaintenanceController extends Controller
 
             return collect($res->json()['result'] ?? [])
                 ->map(function ($h) {
-                    $avail = $h['interfaces'][0]['available'] ?? 0;
-
-                    // Gabungkan semua nama group jadi satu string
-                    $groups = collect($h['groups'] ?? [])
-                        ->pluck('name')
-                        ->implode(', ');
+                    $avail  = $h['interfaces'][0]['available'] ?? 0;
+                    $groups = collect($h['groups'] ?? [])->pluck('name')->implode(', ');
 
                     return [
                         'hostid' => $h['hostid'],
                         'host'   => $h['host'],
                         'ip'     => $h['interfaces'][0]['ip'] ?? '-',
-                        'groups' => $groups,                 // ← tambahkan ini
+                        'groups' => $groups,
                         'status' => match((int) $avail) {
                             1       => 'Online',
                             2       => 'Offline',
@@ -71,7 +67,8 @@ class MaintenanceController extends Controller
     // ─────────────────────────────────────────────
     public function index()
     {
-        $today      = Carbon::today();
+        // FIX: gunakan timezone aplikasi agar konsisten di semua user
+        $today      = Carbon::today(config('app.timezone'));
         $zbxDevices = $this->getZabbixDevices();
         $hostIds    = collect($zbxDevices)->pluck('hostid')->all();
 
@@ -84,11 +81,11 @@ class MaintenanceController extends Controller
             ->groupBy('device_id')
             ->map(fn($records) => $records->first());
 
-        // Device dianggap "sudah maintenance" kalau next_maintenance masih di masa depan (belum lewat)
-        // Artinya: done_at ada, dan next_maintenance > hari ini
+        // Device dianggap "sudah maintenance" kalau next_maintenance masih di masa depan
         $doneTodayMap = $lastMaintenanceMap->filter(
             fn($record) => $record->next_maintenance
-                        && Carbon::parse($record->next_maintenance)->greaterThan($today)
+                        && Carbon::parse($record->next_maintenance, config('app.timezone'))
+                                 ->greaterThan($today)
         );
 
         $doneToday = $doneTodayMap->count();
@@ -107,16 +104,25 @@ class MaintenanceController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'devices'   => 'required|array|min:1',
-            'devices.*' => 'required|string',
-            'notes'     => 'nullable|string|max:1000',
+            'devices'        => 'required|array|min:1',
+            'devices.*'      => 'required|string',
+            'notes'          => 'nullable|string|max:1000',
+            // interval_days: minimal 1 hari, maksimal 365 hari, default 3
+            'interval_days'  => 'nullable|integer|min:1|max:365',
         ]);
 
-        $zbxDevices = collect($this->getZabbixDevices())->keyBy('hostid');
+        $zbxDevices   = collect($this->getZabbixDevices())->keyBy('hostid');
 
-        $today  = Carbon::today();
-        $doneAt = now();
-        $count  = 0;
+        // FIX: gunakan timezone aplikasi agar konsisten
+        $tz     = config('app.timezone');
+        $today  = Carbon::today($tz);
+        $doneAt = Carbon::now($tz);
+
+        // Ambil interval dari form, default 3 hari jika tidak diisi
+        $intervalDays = (int) ($request->interval_days ?? 3);
+        $nextMaint    = $doneAt->copy()->addDays($intervalDays)->toDateString();
+
+        $count = 0;
 
         foreach ($request->devices as $hostId) {
             $zbxDevice  = $zbxDevices->get($hostId);
@@ -125,17 +131,17 @@ class MaintenanceController extends Controller
             // Hindari duplikat: skip jika next_maintenance device ini masih di masa depan
             $alreadyDone = MaintenanceSchedule::where('device_id', $hostId)
                 ->where('is_done', true)
-                ->where('next_maintenance', '>', $today)
+                ->where('next_maintenance', '>', $today->toDateString())
                 ->exists();
 
             if ($alreadyDone) continue;
 
-            // Buat record maintenance baru & langsung tandai done
             MaintenanceSchedule::create([
                 'device_id'        => $hostId,
                 'device_name'      => $deviceName,
-                'scheduled_date'   => $today,
-                'next_maintenance' => Carbon::parse($doneAt)->addDays(3),
+                'scheduled_date'   => $today->toDateString(),
+                'next_maintenance' => $nextMaint,
+                'interval_days'    => $intervalDays,
                 'is_done'          => true,
                 'done_by'          => auth()->id(),
                 'done_at'          => $doneAt,
@@ -150,6 +156,7 @@ class MaintenanceController extends Controller
                     'user_id'   => auth()->id(),
                     'type'      => 'Maintenance',
                     'detail'    => 'Maintenance selesai: ' . $deviceName
+                                   . ' (interval: ' . $intervalDays . ' hari)'
                                    . ($request->notes ? ' — ' . $request->notes : ''),
                 ]);
             }
@@ -158,10 +165,10 @@ class MaintenanceController extends Controller
         }
 
         if ($count === 0) {
-            return back()->with('success', 'Semua device yang dipilih sudah tercatat maintenance dan belum melewati periode 3 hari.');
+            return back()->with('success', 'Semua device yang dipilih sudah tercatat maintenance dan belum melewati periodenya.');
         }
 
-        return back()->with('success', $count . ' device berhasil dicatat maintenance. Akan muncul kembali dalam 3 hari.');
+        return back()->with('success', $count . ' device berhasil dicatat maintenance. Maintenance berikutnya dalam ' . $intervalDays . ' hari.');
     }
 
     // ─────────────────────────────────────────────

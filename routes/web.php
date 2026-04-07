@@ -13,11 +13,32 @@ define('ZABBIX_USER', "Admin");
 define('ZABBIX_PASS', "zabbix");
 define('ZABBIX_API',  ZABBIX_URL . "/api_jsonrpc.php");
 
+// Server kedua khusus grafik traffic Perpus
+define('PERPUS_URL', "http://210.57.222.101/zabbix");
+define('PERPUS_API', PERPUS_URL . "/api_jsonrpc.php");
+
 function getZabbixToken(): ?string
 {
     return Cache::remember('zabbix_api_token', 1500, function () {
         try {
             $res = Http::timeout(5)->post(ZABBIX_API, [
+                "jsonrpc" => "2.0",
+                "method"  => "user.login",
+                "params"  => ["username" => ZABBIX_USER, "password" => ZABBIX_PASS],
+                "id"      => 1,
+            ]);
+            return $res->json()['result'] ?? null;
+        } catch (\Exception $e) {
+            return null;
+        }
+    });
+}
+
+function getPerpusToken(): ?string
+{
+    return Cache::remember('perpus_api_token', 1500, function () {
+        try {
+            $res = Http::timeout(5)->post(PERPUS_API, [
                 "jsonrpc" => "2.0",
                 "method"  => "user.login",
                 "params"  => ["username" => ZABBIX_USER, "password" => ZABBIX_PASS],
@@ -43,6 +64,40 @@ function getZabbixSessionCookie(): ?string
             ]);
 
             $client->post(ZABBIX_URL . "/index.php", [
+                'form_params' => [
+                    'name'     => ZABBIX_USER,
+                    'password' => ZABBIX_PASS,
+                    'enter'    => 'Sign in',
+                ],
+            ]);
+
+            foreach ($jar->toArray() as $cookie) {
+                if ($cookie['Name'] === 'zbx_session') {
+                    return 'zbx_session=' . $cookie['Value'];
+                }
+            }
+
+            return null;
+
+        } catch (\Exception $e) {
+            return null;
+        }
+    });
+}
+
+function getPerpusSessionCookie(): ?string
+{
+    return Cache::remember('perpus_web_cookie', 1500, function () {
+        try {
+            $jar    = new \GuzzleHttp\Cookie\CookieJar();
+            $client = new \GuzzleHttp\Client([
+                'cookies'         => $jar,
+                'allow_redirects' => true,
+                'timeout'         => 5,
+                'connect_timeout' => 5,
+            ]);
+
+            $client->post(PERPUS_URL . "/index.php", [
                 'form_params' => [
                     'name'     => ZABBIX_USER,
                     'password' => ZABBIX_PASS,
@@ -155,11 +210,14 @@ Route::middleware('auth')->group(function () {
 
         if (!$auth) {
             return view('dashboard', [
-                'total'    => 0,
-                'online'   => 0,
-                'offline'  => 0,
-                'severity' => [5=>0,4=>0,3=>0,2=>0,1=>0,0=>0],
-                'problems' => [],
+                'total'        => 0,
+                'online'       => 0,
+                'offline'      => 0,
+                'severity'     => [5=>0,4=>0,3=>0,2=>0,1=>0,0=>0],
+                'problems'     => [],
+                'maintTotal'   => 0,
+                'maintDone'    => 0,
+                'maintPending' => 0,
             ]);
         }
 
@@ -239,7 +297,26 @@ Route::middleware('auth')->group(function () {
             ];
         }
 
-        return view('dashboard', compact('total', 'online', 'offline', 'severity', 'problems'));
+        // ── Maintenance summary ────────────────────────────────
+        $hostIds = collect($hostData)->pluck('hostid')->all();
+        $today   = \Carbon\Carbon::today(config('app.timezone'));
+
+        $doneTodayMap = \App\Models\MaintenanceSchedule::whereIn('device_id', $hostIds)
+            ->where('is_done', true)
+            ->where('next_maintenance', '>', $today->toDateString())
+            ->get()
+            ->groupBy('device_id')
+            ->map(fn($records) => $records->first());
+
+        $maintTotal   = $total;
+        $maintDone    = $doneTodayMap->count();
+        $maintPending = $total - $maintDone;
+
+        return view('dashboard', compact(
+            'total', 'online', 'offline',
+            'severity', 'problems',
+            'maintTotal', 'maintDone', 'maintPending'
+        ));
     });
 
     // ── MONITORING ────────────────────────────────────────────
@@ -248,10 +325,7 @@ Route::middleware('auth')->group(function () {
         $auth = getZabbixToken();
 
         if (!$auth) {
-            return view('monitoring', [
-                'perangkat'  => [],
-                'zabbixDown' => true,
-            ]);
+            return view('monitoring', ['perangkat' => [], 'zabbixDown' => true]);
         }
 
         try {
@@ -261,7 +335,7 @@ Route::middleware('auth')->group(function () {
                 "params"  => [
                     "output"           => ["hostid", "host"],
                     "selectInterfaces" => ["available", "ip", "port", "type"],
-                    "selectGroups"     => ["name"],  // ← tambahkan ini
+                    "selectGroups"     => ["name"],
                 ],
                 "auth" => $auth,
                 "id"   => 2,
@@ -270,10 +344,31 @@ Route::middleware('auth')->group(function () {
             $data = $hosts->json()['result'] ?? [];
 
             if (empty($data)) {
-                return view('monitoring', [
-                    'perangkat'  => [],
-                    'zabbixDown' => true,
-                ]);
+                return view('monitoring', ['perangkat' => [], 'zabbixDown' => false]);
+            }
+
+            $triggerRes = Http::timeout(5)->post(ZABBIX_API, [
+                "jsonrpc" => "2.0",
+                "method"  => "trigger.get",
+                "params"  => [
+                    "output"      => ["triggerid", "priority"],
+                    "selectHosts" => ["hostid"],
+                    "filter"      => ["value" => 1],
+                    "only_true"   => true,
+                    "monitored"   => true,
+                ],
+                "auth" => $auth,
+                "id"   => 5,
+            ]);
+
+            $hostProblems = [];
+            foreach ($triggerRes->json()['result'] ?? [] as $t) {
+                $hid = $t['hosts'][0]['hostid'] ?? null;
+                if (!$hid) continue;
+                $p = (int) $t['priority'];
+                if (!isset($hostProblems[$hid]) || $p > $hostProblems[$hid]) {
+                    $hostProblems[$hid] = $p;
+                }
             }
 
             $perangkat = [];
@@ -287,17 +382,26 @@ Route::middleware('auth')->group(function () {
                 else                         $status = "Unknown";
 
                 $ifaceType = match((int)($iface['type'] ?? 0)) {
-                    1       => 'ZBX',
-                    2       => 'SNMP',
-                    3       => 'IPMI',
-                    4       => 'JMX',
-                    default => '-',
+                    1 => 'ZBX', 2 => 'SNMP', 3 => 'IPMI', 4 => 'JMX', default => '-',
                 };
 
-                // Gabungkan semua nama group jadi satu string, misal: "Linux Servers, Web Servers"
-                $groups = collect($h['groups'] ?? [])
-                    ->pluck('name')
-                    ->implode(', ');
+                $groups = collect($h['groups'] ?? [])->pluck('name')->implode(', ');
+
+                $maxSev = $hostProblems[$h['hostid']] ?? -1;
+
+                if ($availability == 2) {
+                    $health = ['label' => 'Down',     'color' => 'bg-red-500'];
+                } elseif ($availability == 0) {
+                    $health = ['label' => 'Unknown',  'color' => 'bg-gray-400'];
+                } elseif ($maxSev >= 4) {
+                    $health = ['label' => 'Critical', 'color' => 'bg-red-400'];
+                } elseif ($maxSev >= 2) {
+                    $health = ['label' => 'Warning',  'color' => 'bg-yellow-400'];
+                } elseif ($maxSev >= 0) {
+                    $health = ['label' => 'Info',     'color' => 'bg-blue-300'];
+                } else {
+                    $health = ['label' => 'Healthy',  'color' => 'bg-green-500'];
+                }
 
                 $perangkat[] = [
                     "id"         => $h["hostid"],
@@ -305,20 +409,15 @@ Route::middleware('auth')->group(function () {
                     "interface"  => ($iface['ip'] ?? '-') . ':' . ($iface['port'] ?? ''),
                     "iface_type" => $ifaceType,
                     "status"     => $status,
-                    "groups"     => $groups,  // ← tambahkan ini
+                    "groups"     => $groups,
+                    "health"     => $health,
                 ];
             }
 
-            return view('monitoring', [
-                'perangkat'  => $perangkat,
-                'zabbixDown' => false,
-            ]);
+            return view('monitoring', ['perangkat' => $perangkat, 'zabbixDown' => false]);
 
         } catch (\Exception $e) {
-            return view('monitoring', [
-                'perangkat'  => [],
-                'zabbixDown' => true,
-            ]);
+            return view('monitoring', ['perangkat' => [], 'zabbixDown' => true]);
         }
     });
 
@@ -339,7 +438,7 @@ Route::middleware('auth')->group(function () {
         return view('monitoringdetail', compact('host'));
     });
 
-    // ── PROXY GRAPH ───────────────────────────────────────────
+    // ── PROXY GRAPH (server utama) ────────────────────────────
     Route::get('/zabbix-graph', function (Request $request) {
 
         $graphid = $request->query('graphid');
@@ -384,6 +483,122 @@ Route::middleware('auth')->group(function () {
             return response('Error: ' . $e->getMessage(), 500);
         }
     });
+
+    // ── PROXY GRAPH PERPUS (server 210.57.222.101) ────────────
+    Route::get('/perpus-graph', function (Request $request) {
+
+        $graphid = $request->query('graphid');
+        $width   = $request->query('width', 900);
+        $height  = $request->query('height', 250);
+        $period  = $request->query('period', 14400);
+
+        if (!$graphid) return response('graphid required', 400);
+
+        $cookie = getPerpusSessionCookie();
+        if (!$cookie) return response('Gagal konek ke server Perpus', 503);
+
+        try {
+            $client = new \GuzzleHttp\Client();
+            $now    = now();
+
+            $query = [
+                'graphid'        => $graphid,
+                'width'          => $width,
+                'height'         => $height,
+                'from'           => $now->copy()->subSeconds($period)->format('Y-m-d H:i:s'),
+                'to'             => $now->format('Y-m-d H:i:s'),
+                'resolve_macros' => 1,
+            ];
+
+            $response = $client->get(PERPUS_URL . "/chart2.php", [
+                'query'   => $query,
+                'headers' => ['Cookie' => $cookie],
+            ]);
+
+            $contentType = $response->getHeaderLine('Content-Type');
+
+            if (!str_contains($contentType, 'image')) {
+                Cache::forget('perpus_web_cookie');
+                $cookie   = getPerpusSessionCookie();
+                $response = $client->get(PERPUS_URL . "/chart2.php", [
+                    'query'   => $query,
+                    'headers' => ['Cookie' => $cookie],
+                ]);
+                $contentType = $response->getHeaderLine('Content-Type');
+            }
+
+            if (str_contains($contentType, 'image')) {
+                return response($response->getBody()->getContents(), 200)
+                    ->header('Content-Type', 'image/png')
+                    ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
+            }
+
+            return response('Graph tidak tersedia', 404);
+
+        } catch (\Exception $e) {
+            return response('Error: ' . $e->getMessage(), 500);
+        }
+
+    })->name('perpus.graph');
+
+    Route::get('/perpus-metric', function (Request $request) {
+
+        $itemid = $request->query('itemid');
+        $period = (int) $request->query('period', 14400);
+
+        if (!$itemid) return response()->json([]);
+
+        $auth = getPerpusToken();
+        if (!$auth) return response()->json([]);
+
+        try {
+            $timeFrom = time() - $period;
+
+            // Cek value type item dulu (0=float, 3=uint)
+            $itemRes = Http::timeout(5)->post(PERPUS_API, [
+                "jsonrpc" => "2.0",
+                "method"  => "item.get",
+                "params"  => [
+                    "output"  => ["itemid", "value_type"],
+                    "itemids" => [$itemid],
+                ],
+                "auth" => $auth,
+                "id"   => 1,
+            ]);
+
+            $valueType = (int) ($itemRes->json()['result'][0]['value_type'] ?? 0);
+
+            $histRes = Http::timeout(10)->post(PERPUS_API, [
+                "jsonrpc" => "2.0",
+                "method"  => "history.get",
+                "params"  => [
+                    "output"     => ["clock", "value"],
+                    "itemids"    => [$itemid],
+                    "history"    => $valueType,
+                    "time_from"  => $timeFrom,
+                    "sortfield"  => "clock",
+                    "sortorder"  => "ASC",
+                    "limit" => $period <= 86400 ? 500 : ($period <= 2592000 ? 1000 : 2000),
+                ],
+                "auth" => $auth,
+                "id"   => 2,
+            ]);
+
+            $history = $histRes->json()['result'] ?? [];
+
+            // Format untuk Chart.js: {x: timestamp_ms, y: value_bits}
+            $formatted = array_map(fn($d) => [
+                'x' => (int) $d['clock'] * 1000,
+                'y' => round((float) $d['value']),
+            ], $history);
+
+            return response()->json($formatted);
+
+        } catch (\Exception $e) {
+            return response()->json([]);
+        }
+
+    })->name('perpus.metric');
 
     // ── PERANGKAT ─────────────────────────────────────────────
     Route::get('/perangkat', function () {
@@ -482,7 +697,7 @@ Route::middleware('auth')->group(function () {
 
     })->name('zabbix.options');
 
-    // ── ZABBIX HOST — get single (untuk edit form) ────────────
+    // ── ZABBIX HOST — get single ──────────────────────────────
     Route::get('/zabbix/host/{id}', function (string $id) {
 
         $auth = getZabbixToken();
@@ -509,7 +724,7 @@ Route::middleware('auth')->group(function () {
     // ── LOG ───────────────────────────────────────────────────
     Route::get('/log', [ActivityLogController::class, 'index'])->name('log.index');
 
-    // ── MAINTENANCE (view — semua user login) ─────────────────
+    // ── MAINTENANCE ───────────────────────────────────────────
     Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance.index');
 
     // ── ADMIN ONLY ────────────────────────────────────────────
@@ -518,9 +733,10 @@ Route::middleware('auth')->group(function () {
         // Log
         Route::post('/log', [ActivityLogController::class, 'store'])->name('log.store');
 
-        // Maintenance (aksi — admin only)
-        Route::post('/maintenance',        [MaintenanceController::class, 'store'])->name('maintenance.store');
-        Route::delete('/maintenance/{id}', [MaintenanceController::class, 'destroy'])->name('maintenance.destroy');
+        // Maintenance
+        Route::post('/maintenance',           [MaintenanceController::class, 'store'])->name('maintenance.store');
+        Route::post('/maintenance/{id}/done', [MaintenanceController::class, 'markDone'])->name('maintenance.done');
+        Route::delete('/maintenance/{id}',    [MaintenanceController::class, 'destroy'])->name('maintenance.destroy');
 
         // Zabbix Host — store
         Route::post('/zabbix/host', function (Request $request) {
