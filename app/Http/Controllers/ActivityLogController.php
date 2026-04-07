@@ -4,47 +4,68 @@ namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
 use App\Models\Device;
+use App\Models\MaintenanceSchedule;
 use Illuminate\Http\Request;
 
 class ActivityLogController extends Controller
 {
     public function index(Request $request)
     {
-        $query = ActivityLog::with(['device', 'user'])->latest();
+        // ── Log manual dari activity_logs ──
+        $logs = ActivityLog::with(['device', 'user'])->get()
+            ->map(fn($log) => [
+                'time'        => $log->created_at,
+                'device_name' => $log->device->device_id ?? '-',
+                'type'        => $log->type,
+                'detail'      => $log->detail,
+                'user'        => $log->user->name ?? 'System',
+            ]);
 
+        // ── Log otomatis dari maintenance_schedules ──
+        $maintLogs = MaintenanceSchedule::with('doneBy')
+            ->whereNotNull('done_at')
+            ->get()
+            ->map(fn($m) => [
+                'time'        => $m->done_at,
+                'device_name' => $m->device_name,
+                'type'        => 'Maintenance',
+                'detail'      => $m->notes ?? 'Perangkat telah dilakukan maintenance.',
+                'user'        => $m->doneBy->name ?? 'System',
+            ]);
+
+        // ── Gabungkan & urutkan terbaru di atas ──
+        $merged = $logs->concat($maintLogs)->sortByDesc('time')->values();
+
+        // ── Filter search ──
         if ($request->search) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('detail', 'like', '%'.$search.'%')
-                  ->orWhere('type', 'like', '%'.$search.'%')
-                  ->orWhereHas('device', function ($d) use ($search) {
-                      $d->where('device_id', 'like', '%'.$search.'%');
-                  });
-            });
+            $search = strtolower($request->search);
+            $merged = $merged->filter(fn($l) =>
+                str_contains(strtolower($l['device_name']), $search) ||
+                str_contains(strtolower($l['type']), $search) ||
+                str_contains(strtolower($l['detail']), $search)
+            )->values();
         }
 
+        // ── Filter type ──
         if ($request->type) {
-            $query->where('type', $request->type);
+            $merged = $merged->filter(fn($l) => $l['type'] === $request->type)->values();
         }
 
+        // ── Filter date ──
         if ($request->date) {
-            $query->whereDate('created_at', \Carbon\Carbon::createFromFormat('d-m-Y', $request->date));
+            $merged = $merged->filter(fn($l) =>
+                \Carbon\Carbon::parse($l['time'])->format('d-m-Y') === $request->date
+            )->values();
         }
 
-        $logs = $query->get();
+        // ── Dropdown tanggal unik ──
+        $dates = $merged->map(fn($l) =>
+            \Carbon\Carbon::parse($l['time'])->format('d-m-Y')
+        )->unique()->values()->toArray();
 
-        // Tanggal unik untuk dropdown filter
-        $dates = ActivityLog::selectRaw('DATE(created_at) as date')
-            ->groupBy('date')
-            ->orderByDesc('date')
-            ->pluck('date')
-            ->map(fn($d) => \Carbon\Carbon::parse($d)->format('d-m-Y'))
-            ->toArray();
-
-        // Daftar device untuk form tambah log
         $devices = Device::orderBy('device_id')->get();
 
-        return view('log', compact('logs', 'dates', 'devices'));
+        return view('log', compact('merged', 'dates', 'devices'));
     }
 
     public function store(Request $request)

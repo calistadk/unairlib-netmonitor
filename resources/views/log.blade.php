@@ -63,7 +63,7 @@
             <thead class="text-[#243B7C] font-semibold border-b-2 border-gray-300 sticky top-0 z-10 bg-white">
                 <tr>
                     <th class="px-6 py-4 text-left">Time</th>
-                    <th class="px-6 py-4 text-left">Device ID</th>
+                    <th class="px-6 py-4 text-left">Device Name</th>
                     <th class="px-6 py-4 text-left">Types of Activities</th>
                     <th class="px-6 py-4 text-left">Details</th>
                     <th class="px-6 py-4 text-left">User</th>
@@ -81,38 +81,33 @@
                     ];
                 @endphp
 
-                @forelse ($logs as $log)
+                @forelse ($merged as $log)
                 <tr class="hover:bg-gray-50 transition log-row"
-                    data-tanggal="{{ \Carbon\Carbon::parse($log->created_at)->format('d-m-Y') }}"
-                    data-type="{{ $log->type }}"
-                    data-search="{{ strtolower(($log->device->device_id ?? '') . ' ' . $log->type . ' ' . $log->detail) }}">
+                    data-tanggal="{{ \Carbon\Carbon::parse($log['time'])->format('d-m-Y') }}"
+                    data-type="{{ $log['type'] }}"
+                    data-search="{{ strtolower($log['device_name'] . ' ' . $log['type'] . ' ' . $log['detail']) }}">
 
                     <td class="px-6 py-4 text-gray-600 whitespace-nowrap">
-                        {{ \Carbon\Carbon::parse($log->created_at)->format('d-m-Y H:i') }}
+                        {{ \Carbon\Carbon::parse($log['time'])->format('d-m-Y H:i') }}
                     </td>
 
                     <td class="px-6 py-4 text-gray-800 font-medium">
-                        {{ $log->device->device_id ?? '-' }}
+                        {{ $log['device_name'] }}
                     </td>
 
                     <td class="px-6 py-4">
-                        @php $cls = $badgeClass[$log->type] ?? 'bg-gray-100 text-gray-600'; @endphp
+                        @php $cls = $badgeClass[$log['type']] ?? 'bg-gray-100 text-gray-600'; @endphp
                         <span class="px-3 py-1 rounded-full text-xs font-medium {{ $cls }}">
-                            {{ $log->type }}
+                            {{ $log['type'] }}
                         </span>
                     </td>
 
                     <td class="px-6 py-4 text-gray-600">
-                        {{ $log->detail }}
-                        @if ($log->location_before && $log->location_after)
-                            <span class="text-xs text-gray-400 block mt-1">
-                                {{ $log->location_before }} → {{ $log->location_after }}
-                            </span>
-                        @endif
+                        {{ $log['detail'] }}
                     </td>
 
                     <td class="px-6 py-4 text-gray-700">
-                        {{ $log->user->name ?? 'System' }}
+                        {{ $log['user'] }}
                     </td>
 
                 </tr>
