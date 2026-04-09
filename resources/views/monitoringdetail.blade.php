@@ -34,173 +34,106 @@
 @if (count($host['graphs']) > 0)
 
     @php
-    /**
-     * Fungsi deteksi jenis grafik berdasarkan nama.
-     * Return array berisi:
-     *   - title : judul penjelasan
-     *   - what  : penjelasan apa yang diukur grafik ini
-     *   - normal: kondisi normal yang diharapkan
-     *   - warn  : tanda-tanda yang perlu diwaspadai
-     *   - tips  : saran tindakan jika ada masalah
-     *   - color : warna tema kartu (Tailwind class)
-     */
     function getGraphInfo(string $graphName): array {
         $name = strtolower($graphName);
 
-        // ── CPU ──────────────────────────────────────────────
         if (str_contains($name, 'cpu utilization') || str_contains($name, 'cpu usage')) {
-            return [
-                'title'  => 'CPU Utilization',
-                'what'   => 'Grafik ini menampilkan persentase penggunaan CPU dari waktu ke waktu. Nilai 100% berarti processor bekerja pada kapasitas penuh.',
-                'normal' => 'Penggunaan CPU yang sehat berada di bawah 70–80% secara konsisten. Lonjakan sesaat masih wajar saat ada proses besar.',
-                'warn'   => 'Waspadai jika CPU terus-menerus di atas 90% dalam waktu lama — ini dapat menyebabkan respons sistem melambat atau layanan tidak responsif.',
-                'tips'   => 'Identifikasi proses penyebab beban tinggi menggunakan `top` atau `htop`. Pertimbangkan scaling atau optimasi aplikasi jika beban konsisten tinggi.',
-                'color'  => 'blue',
-            ];
+            return ['title' => 'CPU Utilization', 'color' => 'blue',
+                'what' => 'Persentase penggunaan CPU dari waktu ke waktu.',
+                'normal' => 'Di bawah 70–80% secara konsisten.',
+                'warn' => 'Di atas 90% dalam waktu lama menyebabkan sistem melambat.',
+                'tips' => 'Identifikasi proses beban tinggi menggunakan `top` atau `htop`.'];
         }
-
         if (str_contains($name, 'cpu jumps')) {
-            return [
-                'title'  => 'CPU Jumps',
-                'what'   => 'Grafik ini menampilkan lonjakan tiba-tiba pada penggunaan CPU (CPU spikes). Mengukur seberapa sering dan seberapa besar CPU mengalami lonjakan beban.',
-                'normal' => 'Lonjakan kecil dan singkat adalah normal, misalnya saat ada cron job atau backup. Grafik seharusnya terlihat datar dengan sesekali spike kecil.',
-                'warn'   => 'Lonjakan yang sering dan tinggi secara berulang bisa menandakan adanya proses yang tidak efisien, serangan, atau resource leak.',
-                'tips'   => 'Periksa scheduled task dan log sistem saat spike terjadi. Gunakan profiling tool untuk menemukan bottleneck pada aplikasi.',
-                'color'  => 'yellow',
-            ];
+            return ['title' => 'CPU Jumps', 'color' => 'yellow',
+                'what' => 'Lonjakan tiba-tiba pada penggunaan CPU.',
+                'normal' => 'Spike kecil dan singkat masih normal.',
+                'warn' => 'Lonjakan sering dan tinggi menandakan proses tidak efisien.',
+                'tips' => 'Periksa scheduled task dan log sistem saat spike terjadi.'];
         }
-
         if (str_contains($name, 'load average')) {
-            return [
-                'title'  => 'Load Average',
-                'what'   => 'Load average mengukur rata-rata jumlah proses yang sedang berjalan atau menunggu CPU dalam rentang waktu 1, 5, dan 15 menit terakhir.',
-                'normal' => 'Nilai load average yang sehat idealnya tidak melebihi jumlah core CPU yang tersedia. Misalnya, server 4-core sebaiknya di bawah 4.0.',
-                'warn'   => 'Load average yang melebihi jumlah CPU core secara konsisten menandakan antrian proses menumpuk dan sistem mulai kewalahan.',
-                'tips'   => 'Cek jumlah core dengan `nproc`. Jika load terus tinggi, kurangi concurrent process atau tambah kapasitas server.',
-                'color'  => 'purple',
-            ];
+            return ['title' => 'Load Average', 'color' => 'purple',
+                'what' => 'Rata-rata jumlah proses yang berjalan atau menunggu CPU.',
+                'normal' => 'Idealnya tidak melebihi jumlah core CPU.',
+                'warn' => 'Melebihi jumlah CPU core secara konsisten.',
+                'tips' => 'Cek jumlah core dengan `nproc`. Kurangi concurrent process.'];
         }
-
-        // ── Memory ───────────────────────────────────────────
         if (str_contains($name, 'memory utilization') || str_contains($name, 'memory usage')) {
-            return [
-                'title'  => 'Memory Utilization',
-                'what'   => 'Grafik ini menampilkan penggunaan RAM (memory) dari total yang tersedia. Mencakup memory yang dipakai oleh aplikasi, cache, dan buffer sistem.',
-                'normal' => 'Penggunaan memory 60–80% masih dalam batas wajar. Linux secara aktif menggunakan sisa memory untuk cache, sehingga angka tinggi tidak selalu berarti masalah.',
-                'warn'   => 'Waspadai jika memory usage mendekati 95–100% secara konsisten, terutama jika diikuti peningkatan swap usage. Ini dapat menyebabkan OOM killer aktif dan proses mati tiba-tiba.',
-                'tips'   => 'Gunakan `free -h` untuk melihat detail memory. Cek proses yang memakai memory terbesar dengan `ps aux --sort=-%mem`. Pertimbangkan menambah RAM atau mengoptimasi aplikasi.',
-                'color'  => 'green',
-            ];
+            return ['title' => 'Memory Utilization', 'color' => 'green',
+                'what' => 'Penggunaan RAM dari total yang tersedia.',
+                'normal' => '60–80% masih wajar. Linux aktif menggunakan sisa memory untuk cache.',
+                'warn' => 'Mendekati 95–100% konsisten, terutama jika diikuti peningkatan swap.',
+                'tips' => 'Gunakan `free -h` dan `ps aux --sort=-%mem` untuk analisis.'];
         }
-
-        // ── Network ──────────────────────────────────────────
         if (str_contains($name, 'network traffic') || str_contains($name, 'network')) {
-            return [
-                'title'  => 'Network Traffic',
-                'what'   => 'Grafik ini menampilkan lalu lintas jaringan (inbound dan outbound) yang melewati interface network device. Biasanya diukur dalam bits per second (bps) atau bytes per second.',
-                'normal' => 'Traffic yang stabil dan sesuai dengan pola penggunaan normal adalah tanda jaringan sehat. Fluktuasi wajar terjadi di jam-jam sibuk.',
-                'warn'   => 'Lonjakan traffic yang tidak wajar bisa mengindikasikan serangan DDoS, transfer data besar yang tidak terduga, atau misconfiguration routing.',
-                'tips'   => 'Monitor dengan `iftop` atau `nethogs` untuk melihat sumber traffic. Cek firewall dan access log jika ada anomali mendadak.',
-                'color'  => 'teal',
-            ];
+            return ['title' => 'Network Traffic', 'color' => 'teal',
+                'what' => 'Lalu lintas jaringan inbound dan outbound dalam bps/Bps.',
+                'normal' => 'Traffic stabil sesuai pola penggunaan normal.',
+                'warn' => 'Lonjakan tidak wajar bisa indikasi DDoS atau transfer data besar.',
+                'tips' => 'Monitor dengan `iftop` atau `nethogs` untuk cari sumber traffic.'];
         }
-
-        // ── Disk ─────────────────────────────────────────────
         if (str_contains($name, 'disk') && str_contains($name, 'io')) {
-            return [
-                'title'  => 'Disk I/O',
-                'what'   => 'Grafik ini mengukur aktivitas baca (read) dan tulis (write) pada storage/disk. Tingginya I/O menunjukkan banyak operasi baca/tulis sedang terjadi.',
-                'normal' => 'I/O yang stabil dan tidak terus-menerus tinggi menandakan sistem storage bekerja normal. Read biasanya lebih banyak dari write pada server web.',
-                'warn'   => 'I/O yang terus tinggi (I/O wait tinggi) bisa memperlambat seluruh sistem karena CPU harus menunggu operasi disk selesai.',
-                'tips'   => 'Gunakan `iostat -x` untuk analisis mendalam. Pertimbangkan upgrade ke SSD atau tambah IOPS jika bottleneck ada di storage.',
-                'color'  => 'orange',
-            ];
+            return ['title' => 'Disk I/O', 'color' => 'orange',
+                'what' => 'Aktivitas baca (read) dan tulis (write) pada storage.',
+                'normal' => 'I/O stabil dan tidak terus-menerus tinggi.',
+                'warn' => 'I/O wait tinggi memperlambat seluruh sistem.',
+                'tips' => 'Gunakan `iostat -x`. Pertimbangkan upgrade ke SSD.'];
         }
-
         if (str_contains($name, 'disk space') || str_contains($name, 'disk usage')) {
-            return [
-                'title'  => 'Disk Space',
-                'what'   => 'Grafik ini memantau kapasitas ruang penyimpanan yang terpakai pada filesystem. Menampilkan tren penggunaan disk dari waktu ke waktu.',
-                'normal' => 'Idealnya penggunaan disk di bawah 80%. Tren kenaikan yang lambat dan konsisten adalah normal untuk server produksi.',
-                'warn'   => 'Disk di atas 90% sangat berbahaya — sistem bisa tidak bisa menulis log, database corrupt, atau aplikasi crash. Disk penuh bisa terjadi tiba-tiba dari log yang menumpuk.',
-                'tips'   => 'Gunakan `df -h` untuk cek semua partisi dan `du -sh /*` untuk cari folder terbesar. Bersihkan log lama atau tambah kapasitas storage.',
-                'color'  => 'red',
-            ];
+            return ['title' => 'Disk Space', 'color' => 'red',
+                'what' => 'Kapasitas ruang penyimpanan yang terpakai.',
+                'normal' => 'Idealnya di bawah 80%.',
+                'warn' => 'Di atas 90% sangat berbahaya, sistem bisa tidak bisa menulis.',
+                'tips' => 'Gunakan `df -h` dan `du -sh /*` untuk cari folder terbesar.'];
         }
-
-        // ── Swap ─────────────────────────────────────────────
         if (str_contains($name, 'swap')) {
-            return [
-                'title'  => 'Swap Usage',
-                'what'   => 'Swap adalah ruang disk yang digunakan sebagai "memory cadangan" ketika RAM fisik habis. Penggunaan swap yang tinggi menandakan RAM tidak mencukupi.',
-                'normal' => 'Swap yang ideal hampir tidak terpakai (0–5%). Sedikit penggunaan swap sesekali masih bisa diterima.',
-                'warn'   => 'Swap usage yang terus meningkat atau tinggi secara konsisten adalah tanda serius bahwa RAM sudah tidak mencukupi. Performa sistem akan sangat menurun.',
-                'tips'   => 'Tambah RAM fisik adalah solusi terbaik. Sementara itu, identifikasi dan restart proses yang bocor memory (memory leak).',
-                'color'  => 'pink',
-            ];
+            return ['title' => 'Swap Usage', 'color' => 'pink',
+                'what' => 'Ruang disk yang digunakan sebagai memory cadangan.',
+                'normal' => 'Idealnya hampir tidak terpakai (0–5%).',
+                'warn' => 'Terus meningkat menandakan RAM tidak mencukupi.',
+                'tips' => 'Tambah RAM fisik. Identifikasi proses yang memory leak.'];
         }
-
-        // ── Temperature ──────────────────────────────────────
         if (str_contains($name, 'temperature') || str_contains($name, 'temp')) {
-            return [
-                'title'  => 'Temperature',
-                'what'   => 'Grafik ini memantau suhu komponen hardware seperti CPU, hard disk, atau sensor lainnya. Suhu tinggi dapat merusak hardware secara permanen.',
-                'normal' => 'Suhu CPU normal berkisar 40–70°C saat beban normal. Hard disk sebaiknya di bawah 45°C.',
-                'warn'   => 'Suhu CPU di atas 85°C atau hard disk di atas 55°C adalah tanda bahaya. Sistem akan melakukan throttling atau shutdown otomatis untuk mencegah kerusakan.',
-                'tips'   => 'Periksa sirkulasi udara di ruang server, bersihkan debu dari heatsink dan kipas, pastikan pendingin ruangan bekerja optimal.',
-                'color'  => 'red',
-            ];
+            return ['title' => 'Temperature', 'color' => 'red',
+                'what' => 'Suhu komponen hardware seperti CPU atau hard disk.',
+                'normal' => 'CPU 40–70°C, HDD di bawah 45°C.',
+                'warn' => 'CPU di atas 85°C atau HDD di atas 55°C berbahaya.',
+                'tips' => 'Periksa sirkulasi udara, bersihkan debu dari heatsink.'];
         }
-
-        // ── Interface / Ping ─────────────────────────────────
         if (str_contains($name, 'icmp') || str_contains($name, 'ping')) {
-            return [
-                'title'  => 'ICMP / Ping',
-                'what'   => 'Grafik ini menampilkan waktu respons ping (latency) ke device. Mengukur seberapa cepat device merespons permintaan ICMP echo.',
-                'normal' => 'Latency di bawah 10ms untuk perangkat dalam jaringan lokal adalah normal. Untuk perangkat remote, di bawah 50ms masih dianggap baik.',
-                'warn'   => 'Latency tinggi atau packet loss menandakan masalah koneksi jaringan, overload pada device, atau masalah routing.',
-                'tips'   => 'Gunakan `traceroute` untuk menemukan hop mana yang menyebabkan latency tinggi. Cek kondisi fisik kabel atau konfigurasi switch.',
-                'color'  => 'cyan',
-            ];
+            return ['title' => 'ICMP / Ping', 'color' => 'cyan',
+                'what' => 'Waktu respons ping (latency) ke device.',
+                'normal' => 'Di bawah 10ms untuk jaringan lokal.',
+                'warn' => 'Latency tinggi atau packet loss menandakan masalah koneksi.',
+                'tips' => 'Gunakan `traceroute` untuk menemukan hop bermasalah.'];
         }
-
-        // ── Uptime ───────────────────────────────────────────
         if (str_contains($name, 'uptime') || str_contains($name, 'availability')) {
-            return [
-                'title'  => 'Uptime / Availability',
-                'what'   => 'Grafik ini menampilkan berapa lama device telah berjalan tanpa restart, atau persentase waktu device dalam keadaan online.',
-                'normal' => 'Uptime yang tinggi (99%+) menandakan sistem stabil. Server produksi idealnya memiliki uptime berbulan-bulan.',
-                'warn'   => 'Uptime yang sering reset atau availability di bawah 99% menandakan ada masalah stabilitas — bisa dari hardware, software, atau power.',
-                'tips'   => 'Periksa log sistem (`journalctl` atau `/var/log/syslog`) untuk mengetahui penyebab restart. Pastikan UPS berfungsi jika masalah dari power.',
-                'color'  => 'green',
-            ];
+            return ['title' => 'Uptime / Availability', 'color' => 'green',
+                'what' => 'Berapa lama device berjalan tanpa restart.',
+                'normal' => 'Uptime tinggi (99%+) menandakan sistem stabil.',
+                'warn' => 'Uptime sering reset menandakan masalah stabilitas.',
+                'tips' => 'Periksa log sistem untuk mengetahui penyebab restart.'];
         }
-
-        // ── Fallback / Generic ───────────────────────────────
-        return [
-            'title'  => 'Grafik Monitoring',
-            'what'   => 'Grafik ini menampilkan metrik monitoring untuk device ' . $GLOBALS['hostName'] . '. Data diperbarui secara real-time dari Zabbix setiap menit.',
-            'normal' => 'Pantau tren dari waktu ke waktu untuk memahami pola normal device ini. Tren yang stabil biasanya menandakan kondisi sistem yang sehat.',
-            'warn'   => 'Perhatikan lonjakan atau penurunan mendadak yang tidak sesuai pola normal — ini bisa menjadi indikator awal masalah.',
-            'tips'   => 'Konfigurasikan trigger di Zabbix untuk mendapatkan notifikasi otomatis jika nilai melampaui threshold yang telah ditentukan.',
-            'color'  => 'gray',
-        ];
+        return ['title' => 'Grafik Monitoring', 'color' => 'gray',
+            'what' => 'Metrik monitoring real-time dari Zabbix.',
+            'normal' => 'Tren stabil biasanya menandakan kondisi sistem sehat.',
+            'warn' => 'Lonjakan atau penurunan mendadak bisa jadi indikator awal masalah.',
+            'tips' => 'Konfigurasikan trigger di Zabbix untuk notifikasi otomatis.'];
     }
 
     $colorMap = [
-        'blue'   => ['bg' => 'bg-blue-50',   'border' => 'border-blue-200',  'badge' => 'bg-blue-100 text-blue-800',   'icon' => 'text-blue-500',  'head' => 'text-blue-700',  'dot' => 'bg-blue-400'],
-        'yellow' => ['bg' => 'bg-yellow-50',  'border' => 'border-yellow-200','badge' => 'bg-yellow-100 text-yellow-800','icon' => 'text-yellow-500','head' => 'text-yellow-700','dot' => 'bg-yellow-400'],
-        'purple' => ['bg' => 'bg-purple-50',  'border' => 'border-purple-200','badge' => 'bg-purple-100 text-purple-800','icon' => 'text-purple-500','head' => 'text-purple-700','dot' => 'bg-purple-400'],
-        'green'  => ['bg' => 'bg-green-50',   'border' => 'border-green-200', 'badge' => 'bg-green-100 text-green-800',  'icon' => 'text-green-500', 'head' => 'text-green-700', 'dot' => 'bg-green-400'],
-        'teal'   => ['bg' => 'bg-teal-50',    'border' => 'border-teal-200',  'badge' => 'bg-teal-100 text-teal-800',   'icon' => 'text-teal-500',  'head' => 'text-teal-700',  'dot' => 'bg-teal-400'],
-        'orange' => ['bg' => 'bg-orange-50',  'border' => 'border-orange-200','badge' => 'bg-orange-100 text-orange-800','icon' => 'text-orange-500','head' => 'text-orange-700','dot' => 'bg-orange-400'],
-        'red'    => ['bg' => 'bg-red-50',     'border' => 'border-red-200',   'badge' => 'bg-red-100 text-red-800',     'icon' => 'text-red-500',   'head' => 'text-red-700',   'dot' => 'bg-red-400'],
-        'pink'   => ['bg' => 'bg-pink-50',    'border' => 'border-pink-200',  'badge' => 'bg-pink-100 text-pink-800',   'icon' => 'text-pink-500',  'head' => 'text-pink-700',  'dot' => 'bg-pink-400'],
-        'cyan'   => ['bg' => 'bg-cyan-50',    'border' => 'border-cyan-200',  'badge' => 'bg-cyan-100 text-cyan-800',   'icon' => 'text-cyan-500',  'head' => 'text-cyan-700',  'dot' => 'bg-cyan-400'],
-        'gray'   => ['bg' => 'bg-gray-50',    'border' => 'border-gray-200',  'badge' => 'bg-gray-100 text-gray-700',   'icon' => 'text-gray-400',  'head' => 'text-gray-700',  'dot' => 'bg-gray-400'],
+        'blue'   => ['bg' => 'bg-blue-50',   'border' => 'border-blue-200',  'head' => 'text-blue-700',  'dot' => 'bg-blue-400',   'btn' => 'bg-blue-600 hover:bg-blue-700'],
+        'yellow' => ['bg' => 'bg-yellow-50',  'border' => 'border-yellow-200','head' => 'text-yellow-700','dot' => 'bg-yellow-400', 'btn' => 'bg-yellow-600 hover:bg-yellow-700'],
+        'purple' => ['bg' => 'bg-purple-50',  'border' => 'border-purple-200','head' => 'text-purple-700','dot' => 'bg-purple-400', 'btn' => 'bg-purple-600 hover:bg-purple-700'],
+        'green'  => ['bg' => 'bg-green-50',   'border' => 'border-green-200', 'head' => 'text-green-700', 'dot' => 'bg-green-400',  'btn' => 'bg-green-600 hover:bg-green-700'],
+        'teal'   => ['bg' => 'bg-teal-50',    'border' => 'border-teal-200',  'head' => 'text-teal-700',  'dot' => 'bg-teal-400',   'btn' => 'bg-teal-600 hover:bg-teal-700'],
+        'orange' => ['bg' => 'bg-orange-50',  'border' => 'border-orange-200','head' => 'text-orange-700','dot' => 'bg-orange-400', 'btn' => 'bg-orange-600 hover:bg-orange-700'],
+        'red'    => ['bg' => 'bg-red-50',     'border' => 'border-red-200',   'head' => 'text-red-700',   'dot' => 'bg-red-400',    'btn' => 'bg-red-600 hover:bg-red-700'],
+        'pink'   => ['bg' => 'bg-pink-50',    'border' => 'border-pink-200',  'head' => 'text-pink-700',  'dot' => 'bg-pink-400',   'btn' => 'bg-pink-600 hover:bg-pink-700'],
+        'cyan'   => ['bg' => 'bg-cyan-50',    'border' => 'border-cyan-200',  'head' => 'text-cyan-700',  'dot' => 'bg-cyan-400',   'btn' => 'bg-cyan-600 hover:bg-cyan-700'],
+        'gray'   => ['bg' => 'bg-gray-50',    'border' => 'border-gray-200',  'head' => 'text-gray-700',  'dot' => 'bg-gray-400',   'btn' => 'bg-gray-600 hover:bg-gray-700'],
     ];
 
-    // Supaya getGraphInfo() bisa akses nama host di fallback
     $GLOBALS['hostName'] = $host['nama'];
     @endphp
 
@@ -209,15 +142,14 @@
         @php
             $info   = getGraphInfo($graph['name']);
             $colors = $colorMap[$info['color']] ?? $colorMap['gray'];
+            $gid    = $graph['graphid'];
         @endphp
 
         <div class="bg-white rounded-xl shadow-sm p-6">
 
             {{-- Graph header --}}
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-[#243B7C]">
-                    {{ $graph['name'] }}
-                </h3>
+                <h3 class="text-lg font-semibold text-[#243B7C]">{{ $graph['name'] }}</h3>
                 <span class="flex items-center gap-2 text-xs text-gray-400">
                     <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse inline-block"></span>
                     Live
@@ -226,72 +158,100 @@
 
             {{-- Graph image --}}
             <img
-                id="graph-img-{{ $graph['graphid'] }}"
-                src="/zabbix-graph?graphid={{ $graph['graphid'] }}&width=900&height=200&ts={{ time() }}"
+                id="graph-img-{{ $gid }}"
+                src="/zabbix-graph?graphid={{ $gid }}&width=900&height=200&ts={{ time() }}"
                 alt="{{ $graph['name'] }}"
                 class="w-full rounded-lg"
+                crossorigin="anonymous"
                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
             <p class="text-gray-400 text-sm hidden">Graph failed to load.</p>
 
-            {{-- ===== PENJELASAN GRAFIK ===== --}}
+            {{-- ===== PENJELASAN + AI ANALYZE ===== --}}
             <div class="mt-5 rounded-xl border {{ $colors['border'] }} {{ $colors['bg'] }} p-5">
 
-                {{-- Judul penjelasan --}}
-                <div class="flex items-center gap-2 mb-4">
+                <div class="flex items-center justify-between mb-4">
                     <span class="font-semibold text-sm {{ $colors['head'] }}">
                         Tentang Grafik: {{ $info['title'] }}
                     </span>
+
+                    {{-- AI Analyze Button --}}
+                    <button
+                        onclick="analyzeGraph('{{ $gid }}', '{{ addslashes($graph['name']) }}', '{{ $host['nama'] }}')"
+                        id="btn-analyze-{{ $gid }}"
+                        class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white
+                               {{ $colors['btn'] }} rounded-lg transition">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                        </svg>
+                        Analyze with AI
+                    </button>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-                    {{-- Apa yang diukur --}}
+                {{-- Static explanation --}}
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div class="flex flex-col gap-1.5">
                         <div class="flex items-center gap-1.5">
                             <span class="w-2 h-2 rounded-full {{ $colors['dot'] }} shrink-0"></span>
                             <span class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Apa yang diukur</span>
                         </div>
-                        <p class="text-xs text-gray-600 leading-relaxed pl-3.5">
-                            {{ $info['what'] }}
-                        </p>
+                        <p class="text-xs text-gray-600 leading-relaxed pl-3.5">{{ $info['what'] }}</p>
                     </div>
-
-                    {{-- Kondisi Normal --}}
                     <div class="flex flex-col gap-1.5">
                         <div class="flex items-center gap-1.5">
                             <span class="w-2 h-2 rounded-full bg-green-400 shrink-0"></span>
                             <span class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Kondisi Normal</span>
                         </div>
-                        <p class="text-xs text-gray-600 leading-relaxed pl-3.5">
-                            {{ $info['normal'] }}
-                        </p>
+                        <p class="text-xs text-gray-600 leading-relaxed pl-3.5">{{ $info['normal'] }}</p>
                     </div>
-
-                    {{-- Yang perlu diwaspadai + tips --}}
                     <div class="flex flex-col gap-3">
                         <div class="flex flex-col gap-1.5">
                             <div class="flex items-center gap-1.5">
                                 <span class="w-2 h-2 rounded-full bg-red-400 shrink-0"></span>
                                 <span class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Yang Perlu Diwaspadai</span>
                             </div>
-                            <p class="text-xs text-gray-600 leading-relaxed pl-3.5">
-                                {{ $info['warn'] }}
-                            </p>
+                            <p class="text-xs text-gray-600 leading-relaxed pl-3.5">{{ $info['warn'] }}</p>
                         </div>
                         <div class="flex flex-col gap-1.5">
                             <div class="flex items-center gap-1.5">
                                 <span class="w-2 h-2 rounded-full bg-yellow-400 shrink-0"></span>
                                 <span class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Tips Tindakan</span>
                             </div>
-                            <p class="text-xs text-gray-600 leading-relaxed pl-3.5">
-                                {{ $info['tips'] }}
-                            </p>
+                            <p class="text-xs text-gray-600 leading-relaxed pl-3.5">{{ $info['tips'] }}</p>
                         </div>
                     </div>
-
                 </div>
+
+                {{-- AI Analysis Result (hidden by default) --}}
+                <div id="ai-result-{{ $gid }}" class="hidden">
+                    <div class="border-t {{ $colors['border'] }} pt-4 mt-2">
+                        <div class="flex items-center gap-2 mb-3">
+                            <svg class="w-4 h-4 {{ $colors['head'] }}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                            </svg>
+                            <span class="text-xs font-semibold {{ $colors['head'] }} uppercase tracking-wide">AI Analysis</span>
+                            <span class="text-xs text-gray-400" id="ai-timestamp-{{ $gid }}"></span>
+                        </div>
+                        <div id="ai-text-{{ $gid }}"
+                             class="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap bg-white bg-opacity-60 rounded-lg p-3">
+                        </div>
+                    </div>
+                </div>
+
+                {{-- AI Loading state --}}
+                <div id="ai-loading-{{ $gid }}" class="hidden border-t {{ $colors['border'] }} pt-4 mt-2">
+                    <div class="flex items-center gap-3 text-xs text-gray-500">
+                        <svg class="w-4 h-4 animate-spin {{ $colors['head'] }}" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                        Menganalisis grafik dengan AI...
+                    </div>
+                </div>
+
             </div>
-            {{-- ===== END PENJELASAN ===== --}}
+            {{-- ===== END ===== --}}
 
         </div>
         @endforeach
@@ -305,19 +265,122 @@
 
 @endif
 
-<!-- ================= AUTO REFRESH ================= -->
+<!-- ================= SCRIPT ================= -->
 <script>
-    const REFRESH_INTERVAL = 60000;
+const REFRESH_INTERVAL = 60000;
 
-    function refreshGraphs() {
-        document.querySelectorAll('img[id^="graph-img-"]').forEach(img => {
-            const url = new URL(img.src, window.location.origin);
-            url.searchParams.set('ts', Date.now());
-            img.src = url.toString();
+function refreshGraphs() {
+    document.querySelectorAll('img[id^="graph-img-"]').forEach(img => {
+        const url = new URL(img.src, window.location.origin);
+        url.searchParams.set('ts', Date.now());
+        img.src = url.toString();
+    });
+}
+
+setInterval(refreshGraphs, REFRESH_INTERVAL);
+
+// ── AI Analyze ────────────────────────────────────────────────
+async function analyzeGraph(graphId, graphName, hostName) {
+    const btn       = document.getElementById('btn-analyze-' + graphId);
+    const loading   = document.getElementById('ai-loading-' + graphId);
+    const result    = document.getElementById('ai-result-' + graphId);
+    const textEl    = document.getElementById('ai-text-' + graphId);
+    const tsEl      = document.getElementById('ai-timestamp-' + graphId);
+    const imgEl     = document.getElementById('graph-img-' + graphId);
+
+    // Show loading
+    btn.disabled = true;
+    btn.innerHTML = `<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+    </svg> Analyzing...`;
+    loading.classList.remove('hidden');
+    result.classList.add('hidden');
+
+    try {
+        // Step 1: Fetch image dari proxy → blob → base64
+        const imgUrl = `/zabbix-graph?graphid=${graphId}&width=900&height=200&ts=${Date.now()}`;
+        const imgRes = await fetch(imgUrl);
+
+        if (!imgRes.ok) throw new Error('Gagal mengambil gambar grafik');
+
+        const blob      = await imgRes.blob();
+        const base64    = await blobToBase64(blob);
+        const mediaType = blob.type || 'image/png';
+
+        // Step 2: Kirim ke Claude API
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'claude-sonnet-4-20250514',
+                max_tokens: 1000,
+                messages: [{
+                    role: 'user',
+                    content: [
+                        {
+                            type: 'image',
+                            source: {
+                                type: 'base64',
+                                media_type: mediaType,
+                                data: base64,
+                            }
+                        },
+                        {
+                            type: 'text',
+                            text: `Ini adalah grafik monitoring Zabbix untuk device "${hostName}", grafik "${graphName}".
+
+Tolong analisis grafik ini dan berikan:
+1. **Kondisi saat ini** — apa yang terlihat dari data di grafik?
+2. **Tren** — apakah naik, turun, stabil, atau fluktuatif?
+3. **Anomali** — adakah spike, drop, atau pola tidak normal yang terlihat?
+4. **Kesimpulan** — apakah kondisi ini normal, perlu diperhatikan, atau kritis?
+5. **Rekomendasi** — tindakan apa yang disarankan berdasarkan kondisi grafik ini?
+
+Jawab dalam Bahasa Indonesia, ringkas dan langsung ke poin. Gunakan format yang mudah dibaca.`
+                        }
+                    ]
+                }]
+            })
         });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error?.message || 'Claude API error');
+        }
+
+        const data     = await response.json();
+        const analysis = data.content?.[0]?.text || 'Tidak ada hasil analisis.';
+
+        // Show result
+        textEl.textContent = analysis;
+        tsEl.textContent   = '— ' + new Date().toLocaleTimeString('id-ID');
+        loading.classList.add('hidden');
+        result.classList.remove('hidden');
+
+    } catch (err) {
+        loading.classList.add('hidden');
+        result.classList.remove('hidden');
+        textEl.textContent = '⚠️ Gagal menganalisis: ' + err.message;
+        tsEl.textContent   = '';
     }
 
-    setInterval(refreshGraphs, REFRESH_INTERVAL);
+    // Reset button
+    btn.disabled = false;
+    btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+    </svg> Analyze with AI`;
+}
+
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result.split(',')[1]);
+        reader.onerror   = reject;
+        reader.readAsDataURL(blob);
+    });
+}
 </script>
 
 @endsection
