@@ -14,6 +14,122 @@
 </div>
 @endif
 
+<!-- ================= TIME RANGE PICKER BAR ================= -->
+<div class="bg-white rounded-xl shadow-sm px-5 py-3 mb-6 flex items-center gap-4 flex-wrap relative">
+
+    <svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor"
+         stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+    </svg>
+
+    <span class="text-sm font-semibold text-[#243B7C]">{{ $range['label'] }}</span>
+
+    <button type="button" id="btnOpenRangePicker"
+        class="flex items-center gap-1 px-3 py-1.5 text-xs border border-gray-300 rounded-lg
+               text-gray-600 hover:bg-gray-50 transition font-medium">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+        </svg>
+        Change Period
+    </button>
+
+    @if($range['preset'] !== 'active')
+    <span class="ml-auto flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700
+                 text-xs font-semibold rounded-full">
+        <span class="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+        {{ $range['label'] }}
+        <a href="{{ route('maintenance.index') }}"
+           class="ml-1 text-blue-400 hover:text-blue-600 leading-none" title="Reset">✕</a>
+    </span>
+    @endif
+</div>
+
+<!-- ================= RANGE PICKER PANEL ================= -->
+<div id="rangePickerPanel"
+     class="hidden fixed inset-0 z-40 flex items-start justify-center pt-28"
+     onclick="if(event.target===this) closeRangePicker()">
+
+    <div class="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-2xl mx-4 overflow-hidden">
+        <div class="flex">
+
+            <!-- Custom date inputs -->
+            <div class="w-64 border-r border-gray-100 p-5 flex-shrink-0">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Custom Range</p>
+
+                <form method="GET" action="{{ route('maintenance.index') }}" id="rangeForm">
+                    <input type="hidden" name="range_preset" value="custom">
+
+                    <div class="mb-3">
+                        <label class="block text-xs text-gray-500 mb-1">From</label>
+                        <input type="date" name="range_from"
+                            value="{{ $range['preset'] === 'custom' && $range['from'] ? $range['from']->format('Y-m-d') : '' }}"
+                            class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm
+                                   focus:outline-none focus:ring-2 focus:ring-blue-300">
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-xs text-gray-500 mb-1">To</label>
+                        <input type="date" name="range_to"
+                            value="{{ $range['preset'] === 'custom' && $range['to'] ? $range['to']->format('Y-m-d') : '' }}"
+                            class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm
+                                   focus:outline-none focus:ring-2 focus:ring-blue-300">
+                    </div>
+
+                    <button type="submit"
+                        class="w-full py-2 bg-[#243B7C] text-white text-sm font-semibold
+                               rounded-lg hover:bg-blue-800 transition">
+                        Apply
+                    </button>
+                </form>
+            </div>
+
+            <!-- Preset buttons -->
+            <div class="flex-1 p-5">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Quick Select</p>
+
+                @php
+                $presetCols = [
+                    [
+                        ['active',       'Active (default)'],
+                        ['last_7',       'Last 7 days'],
+                        ['last_30',      'Last 30 days'],
+                        ['last_3months', 'Last 3 months'],
+                        ['last_6months', 'Last 6 months'],
+                        ['last_year',    'Last 1 year'],
+                    ],
+                    [
+                        ['today',       'Today'],
+                        ['yesterday',   'Yesterday'],
+                        ['this_week',   'This week'],
+                        ['prev_week',   'Previous week'],
+                        ['this_month',  'This month'],
+                        ['prev_month',  'Previous month'],
+                    ],
+                ];
+                @endphp
+
+                <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+                    @foreach($presetCols as $col)
+                    <div class="space-y-1">
+                        @foreach($col as [$p, $lbl])
+                        <a href="{{ route('maintenance.index', ['range_preset' => $p]) }}"
+                           class="block px-3 py-2 rounded-lg text-sm transition
+                                  {{ $range['preset'] === $p
+                                        ? 'bg-[#243B7C] text-white font-semibold'
+                                        : 'text-gray-700 hover:bg-gray-100' }}">
+                            {{ $lbl }}
+                        </a>
+                        @endforeach
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
 <!-- ================= STATS ================= -->
 <div class="grid grid-cols-3 gap-6 mb-8">
 
@@ -36,8 +152,13 @@
             </svg>
         </div>
         <div>
-            <p class="text-sm text-gray-500">Maintained</p>
-            <p class="text-2xl font-bold text-green-600">{{ $doneToday }}</p>
+            <p class="text-sm text-gray-500">
+                Maintained
+                @if($range['preset'] !== 'active')
+                    <span class="text-xs text-blue-500 block">{{ $range['label'] }}</span>
+                @endif
+            </p>
+            <p class="text-2xl font-bold text-green-600">{{ $doneInRangeMap->count() }}</p>
         </div>
     </div>
 
@@ -72,19 +193,19 @@
                 @endif
             </div>
 
-            {{-- Search & Filters --}}
             <div class="flex items-center gap-3">
 
-                {{-- Search --}}
                 <div class="relative">
                     <input type="text" id="searchInput" placeholder="Search device..."
-                        class="pl-8 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 w-48">
-                    <svg class="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        class="pl-8 pr-4 py-2 text-sm border border-gray-200 rounded-lg
+                               focus:outline-none focus:ring-2 focus:ring-blue-400 w-48">
+                    <svg class="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" fill="none"
+                         viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                     </svg>
                 </div>
 
-                {{-- Filter Group --}}
                 <select id="filterGroup" onchange="applyFilters()"
                     class="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm
                            focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer">
@@ -94,7 +215,6 @@
                     @endforeach
                 </select>
 
-                {{-- Filter Maintenance Status --}}
                 <select id="filterMaintStatus" onchange="applyFilters()"
                     class="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm
                            focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer">
@@ -114,8 +234,7 @@
                         <th class="px-6 py-3 text-left w-10">
                             @if(auth()->user()->isAdmin())
                                 <input type="checkbox" id="checkAll"
-                                    class="w-4 h-4 cursor-pointer accent-blue-700"
-                                    title="Select all">
+                                    class="w-4 h-4 cursor-pointer accent-blue-700" title="Select all">
                             @else
                                 <span class="text-xs text-gray-400">✓</span>
                             @endif
@@ -124,7 +243,12 @@
                         <th class="px-6 py-3 text-left whitespace-nowrap">IP Address</th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">Group</th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">Availability</th>
-                        <th class="px-6 py-3 text-left whitespace-nowrap">Maintenance Status</th>
+                        <th class="px-6 py-3 text-left whitespace-nowrap">
+                            Maintenance Status
+                            @if($range['preset'] !== 'active')
+                                <span class="text-xs text-blue-400 font-normal">({{ $range['label'] }})</span>
+                            @endif
+                        </th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">Last Maintenance</th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">Next Maintenance</th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">Interval</th>
@@ -134,15 +258,17 @@
                 <tbody class="divide-y divide-gray-100" id="deviceTableBody">
                     @forelse ($zbxDevices as $device)
                     @php
-                        $lastMaint    = $lastMaintenanceMap[$device['hostid']] ?? null;
-                        $isDoneToday  = isset($doneTodayMap[$device['hostid']]);
-                        $nextMaint    = $lastMaint?->next_maintenance;
-                        $intervalDays = $lastMaint?->interval_days ?? 3;
+                        $lastMaint     = $lastMaintenanceMap[$device['hostid']] ?? null;
+                        $isDoneToday   = isset($doneTodayMap[$device['hostid']]);
+                        $isDoneInRange = isset($doneInRangeMap[$device['hostid']]);
+                        $rangeRecord   = $doneInRangeMap[$device['hostid']] ?? null;
+                        $nextMaint     = $lastMaint?->next_maintenance;
+                        $intervalDays  = $lastMaint?->interval_days ?? 3;
                     @endphp
                     <tr class="device-row hover:bg-gray-50 transition"
                         data-name="{{ strtolower($device['host']) }}"
                         data-group="{{ $device['groups'] ?? '' }}"
-                        data-maint-status="{{ $isDoneToday ? 'done' : 'pending' }}">
+                        data-maint-status="{{ $isDoneInRange ? 'done' : 'pending' }}">
 
                         {{-- Checkbox --}}
                         <td class="px-6 py-3">
@@ -155,7 +281,7 @@
                                            {{ $isDoneToday ? 'opacity-40 cursor-not-allowed' : '' }}"
                                     {{ $isDoneToday ? 'disabled' : '' }}>
                             @else
-                                @if($isDoneToday)
+                                @if($isDoneInRange)
                                     <span class="text-green-500 font-bold text-base">✓</span>
                                 @else
                                     <span class="inline-block w-4 h-4 rounded border border-gray-300 bg-gray-50"></span>
@@ -194,14 +320,15 @@
 
                         {{-- Maintenance Status --}}
                         <td class="px-6 py-3 whitespace-nowrap">
-                            @if($isDoneToday)
-                                <span class="text-white text-xs font-bold px-2 py-1 rounded bg-green-500">
-                                    Done
-                                </span>
+                            @if($isDoneInRange)
+                                <span class="text-white text-xs font-bold px-2 py-1 rounded bg-green-500">Done</span>
+                                @if($rangeRecord?->done_at && $range['preset'] !== 'active')
+                                    <div class="text-xs text-gray-400 mt-0.5">
+                                        {{ $rangeRecord->done_at->format('d M Y') }}
+                                    </div>
+                                @endif
                             @else
-                                <span class="text-white text-xs font-bold px-2 py-1 rounded bg-yellow-500">
-                                    Pending
-                                </span>
+                                <span class="text-white text-xs font-bold px-2 py-1 rounded bg-yellow-500">Pending</span>
                             @endif
                         </td>
 
@@ -249,7 +376,10 @@
 
                         {{-- Done By --}}
                         <td class="px-6 py-3 text-gray-600 whitespace-nowrap text-xs">
-                            @if($isDoneToday && $lastMaint)
+                            @if($isDoneInRange && $rangeRecord)
+                                {{ $rangeRecord->doneBy->name ?? 'System' }}
+                                <span class="block text-gray-400">{{ $rangeRecord->done_at?->format('H:i') }}</span>
+                            @elseif($isDoneToday && $lastMaint)
                                 {{ $lastMaint->doneBy->name ?? 'System' }}
                                 <span class="block text-gray-400">{{ $lastMaint->done_at?->format('H:i') }}</span>
                             @else
@@ -299,7 +429,6 @@
     </form>
 </div>
 
-
 <!-- ================= CONFIRM MODAL (admin only) ================= -->
 @if(auth()->user()->isAdmin())
 <div id="confirmModal"
@@ -317,13 +446,10 @@
              class="bg-gray-50 rounded-lg px-4 py-3 mb-4 text-sm text-gray-700 max-h-40 overflow-y-auto space-y-1.5">
         </div>
 
-        {{-- ── INTERVAL PICKER (BARU) ───────────────────────────────── --}}
         <div class="mb-4">
             <label class="block text-sm font-semibold text-gray-700 mb-2">
                 Next Maintenance Interval
             </label>
-
-            {{-- Quick-select buttons --}}
             <div class="flex gap-2 mb-3" id="intervalPresets">
                 <button type="button" data-days="1"
                     class="interval-preset flex-1 py-1.5 text-xs font-semibold rounded-lg border border-gray-200
@@ -352,7 +478,6 @@
                 </button>
             </div>
 
-            {{-- Custom input --}}
             <div class="flex items-center gap-2">
                 <div class="relative flex-1">
                     <input type="number"
@@ -371,14 +496,14 @@
             </div>
         </div>
 
-        {{-- Notes --}}
         <div class="mb-5">
             <label class="block text-sm text-gray-700 mb-1">Notes (optional)</label>
             <textarea name="notes"
                 id="notesInput"
                 rows="3"
                 form="maintenanceForm"
-                class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 resize-none text-sm"
+                class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2
+                       focus:ring-blue-400 resize-none text-sm"
                 placeholder="e.g. Cleaned fan, updated firmware..."></textarea>
         </div>
 
@@ -396,24 +521,30 @@
 </div>
 @endif
 
-
 <!-- ================= SCRIPT ================= -->
 <script>
-// ─── Unified filter function ───────────────────────────────────
+// ── Range Picker ─────────────────────────────────────────────
+document.getElementById('btnOpenRangePicker').addEventListener('click', function () {
+    document.getElementById('rangePickerPanel').classList.toggle('hidden');
+});
+
+function closeRangePicker() {
+    document.getElementById('rangePickerPanel').classList.add('hidden');
+}
+
+// ── Filter Table ─────────────────────────────────────────────
 function applyFilters() {
     const search      = document.getElementById('searchInput').value.toLowerCase().trim();
     const group       = document.getElementById('filterGroup').value;
     const maintStatus = document.getElementById('filterMaintStatus').value;
-
-    const rows = document.querySelectorAll('.device-row');
-    let visible = 0;
+    const rows        = document.querySelectorAll('.device-row');
+    let visible       = 0;
 
     rows.forEach(row => {
         const nameMatch   = (row.dataset.name  || '').includes(search);
         const groupMatch  = group       === '' || row.dataset.group       === group;
         const statusMatch = maintStatus === '' || row.dataset.maintStatus === maintStatus;
-
-        const show = nameMatch && groupMatch && statusMatch;
+        const show        = nameMatch && groupMatch && statusMatch;
         row.style.display = show ? '' : 'none';
         if (show) visible++;
     });
@@ -424,7 +555,7 @@ function applyFilters() {
 document.getElementById('searchInput').addEventListener('input', applyFilters);
 
 @if(auth()->user()->isAdmin())
-// ─── Checkbox logic (admin only) ──────────────────────────────
+// ── Checkbox logic ────────────────────────────────────────────
 function getCheckboxes() {
     return [...document.querySelectorAll('.device-cb:not([disabled])')];
 }
@@ -463,16 +594,14 @@ document.querySelectorAll('.device-cb').forEach(cb => {
     cb.addEventListener('change', updateUI);
 });
 
-// ─── Interval picker logic ─────────────────────────────────────
-const intervalInput   = document.getElementById('intervalCustomInput');
+// ── Interval picker ───────────────────────────────────────────
+const intervalInput    = document.getElementById('intervalCustomInput');
 const nextMaintPreview = document.getElementById('nextMaintPreview');
-const presetBtns      = document.querySelectorAll('.interval-preset');
+const presetBtns       = document.querySelectorAll('.interval-preset');
 
 function setIntervalValue(days) {
     intervalInput.value = days;
     updateNextMaintPreview(days);
-
-    // Update active style on preset buttons
     presetBtns.forEach(btn => {
         const isActive = parseInt(btn.dataset.days) === parseInt(days);
         btn.classList.toggle('border-blue-500',  isActive);
@@ -485,39 +614,32 @@ function setIntervalValue(days) {
 
 function updateNextMaintPreview(days) {
     const d = parseInt(days);
-    if (!d || d < 1) {
-        nextMaintPreview.textContent = 'Next: —';
-        return;
-    }
+    if (!d || d < 1) { nextMaintPreview.textContent = 'Next: —'; return; }
     const next = new Date();
     next.setDate(next.getDate() + d);
-    const formatted = next.toLocaleDateString('id-ID', {
+    nextMaintPreview.textContent = 'Next: ' + next.toLocaleDateString('id-ID', {
         day: '2-digit', month: 'short', year: 'numeric'
     });
-    nextMaintPreview.textContent = 'Next: ' + formatted;
 }
 
-// Preset button clicks
 presetBtns.forEach(btn => {
     btn.addEventListener('click', () => setIntervalValue(btn.dataset.days));
 });
 
-// Manual input → clear active preset highlight unless it matches
 intervalInput.addEventListener('input', function () {
     const val = parseInt(this.value);
     updateNextMaintPreview(val);
-
     presetBtns.forEach(btn => {
         const isActive = parseInt(btn.dataset.days) === val;
-        btn.classList.toggle('border-blue-500', isActive);
-        btn.classList.toggle('bg-blue-50',       isActive);
-        btn.classList.toggle('text-blue-700',    isActive);
-        btn.classList.toggle('border-gray-200', !isActive);
-        btn.classList.toggle('text-gray-600',   !isActive);
+        btn.classList.toggle('border-blue-500',  isActive);
+        btn.classList.toggle('bg-blue-50',        isActive);
+        btn.classList.toggle('text-blue-700',     isActive);
+        btn.classList.toggle('border-gray-200',  !isActive);
+        btn.classList.toggle('text-gray-600',    !isActive);
     });
 });
 
-// ─── Confirm modal ─────────────────────────────────────────────
+// ── Confirm modal ─────────────────────────────────────────────
 function openConfirmModal() {
     const checked = getCheckboxes().filter(c => c.checked);
     if (checked.length === 0) return;
@@ -532,9 +654,7 @@ function openConfirmModal() {
         list.appendChild(div);
     });
 
-    // Reset interval to default (3) and update preview
     setIntervalValue(3);
-
     document.getElementById('notesInput').value = '';
     document.getElementById('confirmModal').classList.remove('hidden');
 }

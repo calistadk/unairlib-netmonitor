@@ -63,16 +63,63 @@ class MaintenanceController extends Controller
     }
 
     // ─────────────────────────────────────────────
+    //  Resolve time range dari preset atau custom
+    // ─────────────────────────────────────────────
+    private function resolveTimeRange(Request $request): array
+    {
+        $tz     = config('app.timezone');
+        $preset = $request->input('range_preset', 'active');
+
+        if ($preset === 'custom') {
+            $from = $request->filled('range_from')
+                ? Carbon::parse($request->range_from, $tz)->startOfDay()
+                : Carbon::now($tz)->subDays(7)->startOfDay();
+            $to = $request->filled('range_to')
+                ? Carbon::parse($request->range_to, $tz)->endOfDay()
+                : Carbon::now($tz)->endOfDay();
+
+            return [
+                'from'   => $from,
+                'to'     => $to,
+                'preset' => 'custom',
+                'label'  => $from->format('d M Y') . ' – ' . $to->format('d M Y'),
+            ];
+        }
+
+        $now = Carbon::now($tz);
+
+        [$from, $to, $label] = match($preset) {
+            'today'        => [$now->copy()->startOfDay(),              $now->copy()->endOfDay(),              'Today'],
+            'yesterday'    => [$now->copy()->subDay()->startOfDay(),    $now->copy()->subDay()->endOfDay(),    'Yesterday'],
+            'last_7'       => [$now->copy()->subDays(7),                $now->copy(),                         'Last 7 days'],
+            'last_30'      => [$now->copy()->subDays(30),               $now->copy(),                         'Last 30 days'],
+            'last_3months' => [$now->copy()->subMonths(3),              $now->copy(),                         'Last 3 months'],
+            'last_6months' => [$now->copy()->subMonths(6),              $now->copy(),                         'Last 6 months'],
+            'last_year'    => [$now->copy()->subYear(),                 $now->copy(),                         'Last 1 year'],
+            'this_week'    => [$now->copy()->startOfWeek(),             $now->copy()->endOfWeek(),            'This week'],
+            'this_month'   => [$now->copy()->startOfMonth(),            $now->copy()->endOfMonth(),           'This month'],
+            'prev_week'    => [$now->copy()->subWeek()->startOfWeek(),  $now->copy()->subWeek()->endOfWeek(), 'Previous week'],
+            'prev_month'   => [$now->copy()->subMonth()->startOfMonth(),$now->copy()->subMonth()->endOfMonth(),'Previous month'],
+            default        => [null, null, 'Active'],
+        };
+
+        return ['from' => $from, 'to' => $to, 'preset' => $preset, 'label' => $label];
+    }
+
+    // ─────────────────────────────────────────────
     //  INDEX
     // ─────────────────────────────────────────────
-    public function index()
+    public function index(Request $request)
     {
-        // FIX: gunakan timezone aplikasi agar konsisten di semua user
-        $today      = Carbon::today(config('app.timezone'));
+        $tz         = config('app.timezone');
+        $today      = Carbon::today($tz);
         $zbxDevices = $this->getZabbixDevices();
         $hostIds    = collect($zbxDevices)->pluck('hostid')->all();
 
-        // Ambil record maintenance TERAKHIR per device (yang sudah done)
+        // ── Resolve time range ────────────────────
+        $range = $this->resolveTimeRange($request);
+
+        // ── Ambil record maintenance terbaru per device (all-time) ──
         $lastMaintenanceMap = MaintenanceSchedule::with('doneBy')
             ->whereIn('device_id', $hostIds)
             ->where('is_done', true)
@@ -81,54 +128,66 @@ class MaintenanceController extends Controller
             ->groupBy('device_id')
             ->map(fn($records) => $records->first());
 
-        // Device dianggap "sudah maintenance" kalau next_maintenance masih di masa depan
+        // ── doneTodayMap: next_maintenance masih di masa depan (logika asli) ──
         $doneTodayMap = $lastMaintenanceMap->filter(
             fn($record) => $record->next_maintenance
-                        && Carbon::parse($record->next_maintenance, config('app.timezone'))
-                                 ->greaterThan($today)
+                        && Carbon::parse($record->next_maintenance, $tz)->greaterThan($today)
         );
 
         $doneToday = $doneTodayMap->count();
 
+        // ── doneInRangeMap: filter by range yang dipilih ──────────
+        if ($range['preset'] === 'active') {
+            // Default: sama dengan doneTodayMap
+            $doneInRangeMap = $doneTodayMap;
+        } else {
+            $rangeQuery = MaintenanceSchedule::with('doneBy')
+                ->whereIn('device_id', $hostIds)
+                ->where('is_done', true);
+
+            if ($range['from']) $rangeQuery->where('done_at', '>=', $range['from']);
+            if ($range['to'])   $rangeQuery->where('done_at', '<=', $range['to']);
+
+            $doneInRangeMap = $rangeQuery->orderBy('done_at', 'desc')
+                ->get()
+                ->groupBy('device_id')
+                ->map(fn($records) => $records->first());
+        }
+
         return view('maintenance', compact(
             'zbxDevices',
             'doneTodayMap',
+            'doneInRangeMap',
             'lastMaintenanceMap',
-            'doneToday'
+            'doneToday',
+            'range',
         ));
     }
 
     // ─────────────────────────────────────────────
-    //  STORE — catat maintenance dari checklist
+    //  STORE
     // ─────────────────────────────────────────────
     public function store(Request $request)
     {
         $request->validate([
-            'devices'        => 'required|array|min:1',
-            'devices.*'      => 'required|string',
-            'notes'          => 'nullable|string|max:1000',
-            // interval_days: minimal 1 hari, maksimal 365 hari, default 3
-            'interval_days'  => 'nullable|integer|min:1|max:365',
+            'devices'       => 'required|array|min:1',
+            'devices.*'     => 'required|string',
+            'notes'         => 'nullable|string|max:1000',
+            'interval_days' => 'nullable|integer|min:1|max:365',
         ]);
 
         $zbxDevices   = collect($this->getZabbixDevices())->keyBy('hostid');
-
-        // FIX: gunakan timezone aplikasi agar konsisten
-        $tz     = config('app.timezone');
-        $today  = Carbon::today($tz);
-        $doneAt = Carbon::now($tz);
-
-        // Ambil interval dari form, default 3 hari jika tidak diisi
+        $tz           = config('app.timezone');
+        $today        = Carbon::today($tz);
+        $doneAt       = Carbon::now($tz);
         $intervalDays = (int) ($request->interval_days ?? 3);
         $nextMaint    = $doneAt->copy()->addDays($intervalDays)->toDateString();
-
-        $count = 0;
+        $count        = 0;
 
         foreach ($request->devices as $hostId) {
             $zbxDevice  = $zbxDevices->get($hostId);
             $deviceName = $zbxDevice['host'] ?? $hostId;
 
-            // Hindari duplikat: skip jika next_maintenance device ini masih di masa depan
             $alreadyDone = MaintenanceSchedule::where('device_id', $hostId)
                 ->where('is_done', true)
                 ->where('next_maintenance', '>', $today->toDateString())
@@ -148,7 +207,6 @@ class MaintenanceController extends Controller
                 'notes'            => $request->notes,
             ]);
 
-            // Catat ke activity log jika device ada di tabel devices MySQL
             $device = Device::where('device_id', $hostId)->first();
             if ($device) {
                 ActivityLog::create([
@@ -172,7 +230,7 @@ class MaintenanceController extends Controller
     }
 
     // ─────────────────────────────────────────────
-    //  DESTROY — hapus record maintenance
+    //  DESTROY
     // ─────────────────────────────────────────────
     public function destroy($id)
     {
