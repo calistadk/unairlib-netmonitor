@@ -48,7 +48,6 @@
     <span class="ml-auto text-xs text-gray-400">
         <span class="font-semibold text-gray-700">{{ $merged->count() }}</span> log ditemukan
     </span>
-
 </div>
 
 <!-- ================= RANGE PICKER PANEL ================= -->
@@ -167,6 +166,17 @@
         <option value="Perpindahan Lokasi" {{ request('type') === 'Perpindahan Lokasi' ? 'selected' : '' }}>Perpindahan Lokasi</option>
     </select>
 
+    <!-- ===== EXPORT BUTTON ===== -->
+    <button onclick="exportToExcel()"
+        class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm
+               font-semibold rounded-lg hover:bg-green-700 transition whitespace-nowrap">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        Export Excel
+    </button>
+    
     @if(auth()->user()->isAdmin())
     <button onclick="openModal()"
         class="flex items-center gap-2 px-4 py-2 bg-[#243B7C] text-white text-sm
@@ -180,7 +190,7 @@
 <!-- ================= LOG TABLE ================= -->
 <div class="bg-white rounded-xl shadow-sm overflow-hidden">
 <div class="overflow-x-auto overflow-y-auto max-h-[70vh]">
-<table class="w-full text-sm border border-gray-200" id="deviceTable">
+<table class="w-full text-sm border border-gray-200" id="logTable">
 
     <thead class="text-[#243B7C] font-semibold border-b-2 border-gray-300 sticky top-0 z-10 bg-white">
         <tr>
@@ -206,6 +216,11 @@
         @forelse ($merged as $log)
         <tr class="hover:bg-gray-50 transition log-row"
             data-type="{{ $log['type'] }}"
+            data-time="{{ \Carbon\Carbon::parse($log['time'])->format('d-m-Y H:i') }}"
+            data-device="{{ $log['device_name'] }}"
+            data-activity="{{ $log['type'] }}"
+            data-detail="{{ $log['detail'] }}"
+            data-user="{{ $log['user'] }}"
             data-search="{{ strtolower($log['device_name'] . ' ' . $log['type'] . ' ' . $log['detail']) }}">
 
             <td class="px-6 py-4 text-gray-600 whitespace-nowrap">
@@ -347,6 +362,7 @@
 </div>
 
 <!-- ================= SCRIPT ================= -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ── Range Picker ──────────────────────────────────────────────
 document.getElementById('btnOpenRangePicker').addEventListener('click', function () {
@@ -374,6 +390,33 @@ function filterLog() {
     });
 
     document.getElementById('emptyState').classList.toggle('hidden', visible > 0);
+}
+
+// ── Export Excel ──────────────────────────────────────────────
+function exportToExcel() {
+    const headers = ['Time', 'Device Name', 'Type of Activity', 'Detail', 'User'];
+    const rows = [headers];
+
+    document.querySelectorAll('.log-row:not(.hidden)').forEach(row => {
+        rows.push([
+            row.dataset.time     ?? '',
+            row.dataset.device   ?? '',
+            row.dataset.activity ?? '',
+            row.dataset.detail   ?? '',
+            row.dataset.user     ?? '',
+        ]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [
+        { wch: 18 }, { wch: 28 }, { wch: 20 }, { wch: 45 }, { wch: 18 }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Activity Log');
+
+    const date = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `activity-log-${date}.xlsx`);
 }
 
 // ── Modal ─────────────────────────────────────────────────────

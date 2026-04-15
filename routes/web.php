@@ -13,8 +13,8 @@ define('ZABBIX_USER', "Admin");
 define('ZABBIX_PASS', "zabbix");
 define('ZABBIX_API',  ZABBIX_URL . "/api_jsonrpc.php");
 
-// Server kedua khusus grafik traffic Perpus
-define('PERPUS_URL', "http://210.57.222.101/zabbix");
+// Server kedua khusus grafik traffic Perpus (sama dengan server utama)
+define('PERPUS_URL', "http://210.57.222.125:8481/zabbix");
 define('PERPUS_API', PERPUS_URL . "/api_jsonrpc.php");
 
 function getZabbixToken(): ?string
@@ -484,7 +484,7 @@ Route::middleware('auth')->group(function () {
         }
     });
 
-    // ── PROXY GRAPH PERPUS (server 210.57.222.101) ────────────
+    // ── PROXY GRAPH PERPUS ────────────────────────────────────
     Route::get('/perpus-graph', function (Request $request) {
 
         $graphid = $request->query('graphid');
@@ -541,6 +541,67 @@ Route::middleware('auth')->group(function () {
 
     })->name('perpus.graph');
 
+    // ── METRIC TRAFFIC — pakai server utama (ROUTER B item) ───
+    Route::get('/zabbix-metric', function (Request $request) {
+
+        $itemid = $request->query('itemid');
+        $period = (int) $request->query('period', 14400);
+
+        if (!$itemid) return response()->json([]);
+
+        $auth = getZabbixToken();
+        if (!$auth) return response()->json([]);
+
+        try {
+            $timeFrom = time() - $period;
+
+            // Cek value type item (0=float, 3=uint)
+            $itemRes = Http::timeout(5)->post(ZABBIX_API, [
+                "jsonrpc" => "2.0",
+                "method"  => "item.get",
+                "params"  => [
+                    "output"  => ["itemid", "value_type"],
+                    "itemids" => [$itemid],
+                ],
+                "auth" => $auth,
+                "id"   => 1,
+            ]);
+
+            $valueType = (int) ($itemRes->json()['result'][0]['value_type'] ?? 0);
+
+            $histRes = Http::timeout(10)->post(ZABBIX_API, [
+                "jsonrpc" => "2.0",
+                "method"  => "history.get",
+                "params"  => [
+                    "output"    => ["clock", "value"],
+                    "itemids"   => [$itemid],
+                    "history"   => $valueType,
+                    "time_from" => $timeFrom,
+                    "sortfield" => "clock",
+                    "sortorder" => "ASC",
+                    "limit"     => $period <= 86400 ? 500 : ($period <= 2592000 ? 1000 : 2000),
+                ],
+                "auth" => $auth,
+                "id"   => 2,
+            ]);
+
+            $history = $histRes->json()['result'] ?? [];
+
+            // Format untuk Chart.js: {x: timestamp_ms, y: value}
+            $formatted = array_map(fn($d) => [
+                'x' => (int) $d['clock'] * 1000,
+                'y' => round((float) $d['value']),
+            ], $history);
+
+            return response()->json($formatted);
+
+        } catch (\Exception $e) {
+            return response()->json([]);
+        }
+
+    })->name('zabbix.metric');
+
+    // ── METRIC LAMA (perpus-metric) — tetap ada untuk kompatibilitas ──
     Route::get('/perpus-metric', function (Request $request) {
 
         $itemid = $request->query('itemid');
@@ -554,7 +615,6 @@ Route::middleware('auth')->group(function () {
         try {
             $timeFrom = time() - $period;
 
-            // Cek value type item dulu (0=float, 3=uint)
             $itemRes = Http::timeout(5)->post(PERPUS_API, [
                 "jsonrpc" => "2.0",
                 "method"  => "item.get",
@@ -572,13 +632,13 @@ Route::middleware('auth')->group(function () {
                 "jsonrpc" => "2.0",
                 "method"  => "history.get",
                 "params"  => [
-                    "output"     => ["clock", "value"],
-                    "itemids"    => [$itemid],
-                    "history"    => $valueType,
-                    "time_from"  => $timeFrom,
-                    "sortfield"  => "clock",
-                    "sortorder"  => "ASC",
-                    "limit" => $period <= 86400 ? 500 : ($period <= 2592000 ? 1000 : 2000),
+                    "output"    => ["clock", "value"],
+                    "itemids"   => [$itemid],
+                    "history"   => $valueType,
+                    "time_from" => $timeFrom,
+                    "sortfield" => "clock",
+                    "sortorder" => "ASC",
+                    "limit"     => $period <= 86400 ? 500 : ($period <= 2592000 ? 1000 : 2000),
                 ],
                 "auth" => $auth,
                 "id"   => 2,
@@ -586,7 +646,6 @@ Route::middleware('auth')->group(function () {
 
             $history = $histRes->json()['result'] ?? [];
 
-            // Format untuk Chart.js: {x: timestamp_ms, y: value_bits}
             $formatted = array_map(fn($d) => [
                 'x' => (int) $d['clock'] * 1000,
                 'y' => round((float) $d['value']),
@@ -864,3 +923,79 @@ Route::middleware('auth')->group(function () {
         })->name('zabbix.host.destroy');
     });
 });
+Route::get('/debug-hosts', function() {
+    $auth = getZabbixToken();
+    $res = Http::post(ZABBIX_API, [
+        "jsonrpc" => "2.0",
+        "method"  => "host.get",
+        "params"  => [
+            "output" => ["hostid", "host"],
+        ],
+        "auth" => $auth,
+        "id"   => 1,
+    ]);
+    return response()->json($res->json()['result'] ?? []);
+})->middleware('auth');
+
+Route::get('/debug-items/{hostid}', function(string $hostid) {
+    $auth = getZabbixToken();
+    $res = Http::post(ZABBIX_API, [
+        "jsonrpc" => "2.0",
+        "method"  => "item.get",
+        "params"  => [
+            "output"  => ["itemid", "name", "key_"],
+            "hostids" => [$hostid],
+            "search"  => ["name" => "Bits"],
+            "searchWildcardsEnabled" => true,
+        ],
+        "auth" => $auth,
+        "id"   => 1,
+    ]);
+    return response()->json($res->json()['result'] ?? []);
+})->middleware('auth');
+
+Route::get('/debug-items2/{hostid}', function(string $hostid) {
+    $auth = getZabbixToken();
+    $res = Http::post(ZABBIX_API, [
+        "jsonrpc" => "2.0",
+        "method"  => "item.get",
+        "params"  => [
+            "output"  => ["itemid", "name", "key_"],
+            "hostids" => [$hostid],
+        ],
+        "auth" => $auth,
+        "id"   => 1,
+    ]);
+    return response()->json($res->json()['result'] ?? []);
+})->middleware('auth');
+
+Route::get('/debug-graphs/{hostid}', function(string $hostid) {
+    $auth = getZabbixToken();
+    $res = Http::post(ZABBIX_API, [
+        "jsonrpc" => "2.0",
+        "method"  => "graph.get",
+        "params"  => [
+            "output"  => ["graphid", "name"],
+            "hostids" => [$hostid],
+        ],
+        "auth" => $auth,
+        "id"   => 1,
+    ]);
+    return response()->json($res->json()['result'] ?? []);
+})->middleware('auth');
+
+Route::get('/debug-graphitems/{graphid}', function(string $graphid) {
+    $auth = getZabbixToken();
+    $res = Http::post(ZABBIX_API, [
+        "jsonrpc" => "2.0",
+        "method"  => "graphitem.get",
+        "params"  => [
+            "output"   => ["itemid", "color"],
+            "graphids" => [$graphid],
+            "expandData" => true,
+        ],
+        "auth" => $auth,
+        "id"   => 1,
+    ]);
+    return response()->json($res->json()['result'] ?? []);
+})->middleware('auth');

@@ -61,6 +61,17 @@
         @endforeach
     </select>
 
+    <!-- ===== EXPORT BUTTON ===== -->
+    <button onclick="exportToExcel()"
+        class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm
+               font-semibold rounded-lg hover:bg-green-700 transition whitespace-nowrap">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        Export Excel
+    </button>
+
     {{-- Tombol Add hanya ditampilkan untuk admin --}}
     @if(auth()->user()->isAdmin())
     <button onclick="openAddZabbix()"
@@ -469,6 +480,7 @@
 @endif {{-- end @if(auth()->user()->isAdmin()) --}}
 
 <!-- ================= SCRIPT ================= -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 let currentDevice = null;
 let zabbixOptions = null;
@@ -491,6 +503,44 @@ function filterDevice() {
     });
 
     document.getElementById('emptyDevice').classList.toggle('hidden', visible > 0);
+}
+
+// ── Export Excel ─────────────────────────────────────────
+function exportToExcel() {
+    const headers = ['No.', 'Host', 'IP Address', 'Interface Type', 'Status', 'Group', 'Type', 'Vendor & Model', 'Serial', 'OS', 'Location'];
+    const rows = [headers];
+
+    let no = 1;
+    document.querySelectorAll('.device-row:not(.hidden)').forEach(row => {
+        const cells = row.querySelectorAll('td');
+        rows.push([
+            no++,
+            cells[1]?.innerText?.trim() ?? '',
+            cells[2]?.innerText?.trim() ?? '',
+            row.dataset.iface ?? '',
+            row.dataset.status ?? '',
+            cells[4]?.innerText?.trim() ?? '',
+            cells[5]?.innerText?.trim() ?? '',
+            cells[6]?.innerText?.trim() ?? '',
+            cells[7]?.innerText?.trim() ?? '',
+            cells[8]?.innerText?.trim() ?? '',
+            cells[9]?.innerText?.trim() ?? '',
+        ]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+
+    // Column widths
+    ws['!cols'] = [
+        { wch: 5 }, { wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 10 },
+        { wch: 20 }, { wch: 14 }, { wch: 22 }, { wch: 18 }, { wch: 16 }, { wch: 20 }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Device Data');
+
+    const date = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `device-data-${date}.xlsx`);
 }
 
 @if(auth()->user()->isAdmin())

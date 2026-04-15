@@ -51,15 +51,15 @@
                     </svg>
                 </div>
                 <select id="periodB" onchange="loadChart('B', this.value)"
-    class="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300">
-    <option value="3600">Last 1 hour</option>
-    <option value="14400" selected>Last 4 hours</option>
-    <option value="43200">Last 12 hours</option>
-    <option value="86400">Last 1 day</option>
-    <option value="604800">Last 7 days</option>
-    <option value="2592000">Last 30 days</option>
-    <option value="31536000">Last 1 year</option>
-</select>
+                    class="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300">
+                    <option value="3600">Last 1 hour</option>
+                    <option value="14400" selected>Last 4 hours</option>
+                    <option value="43200">Last 12 hours</option>
+                    <option value="86400">Last 1 day</option>
+                    <option value="604800">Last 7 days</option>
+                    <option value="2592000">Last 30 days</option>
+                    <option value="31536000">Last 1 year</option>
+                </select>
             </div>
         </div>
         <div id="errorB" class="hidden py-10 text-center text-gray-400 text-sm">Graph tidak tersedia</div>
@@ -77,16 +77,16 @@
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
                     </svg>
                 </div>
-               <select id="periodB" onchange="loadChart('C', this.value)"
-    class="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300">
-    <option value="3600">Last 1 hour</option>
-    <option value="14400" selected>Last 4 hours</option>
-    <option value="43200">Last 12 hours</option>
-    <option value="86400">Last 1 day</option>
-    <option value="604800">Last 7 days</option>
-    <option value="2592000">Last 30 days</option>
-    <option value="31536000">Last 1 year</option>
-</select>
+                <select id="periodC" onchange="loadChart('C', this.value)"
+                    class="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300">
+                    <option value="3600">Last 1 hour</option>
+                    <option value="14400" selected>Last 4 hours</option>
+                    <option value="43200">Last 12 hours</option>
+                    <option value="86400">Last 1 day</option>
+                    <option value="604800">Last 7 days</option>
+                    <option value="2592000">Last 30 days</option>
+                    <option value="31536000">Last 1 year</option>
+                </select>
             </div>
         </div>
         <div id="errorC" class="hidden py-10 text-center text-gray-400 text-sm">Graph tidak tersedia</div>
@@ -267,12 +267,12 @@ new Chart(maintCtx, {
 
 // ─── Network Traffic Charts ───────────────────────────────────
 const ITEM_IDS = {
-    B: { in: '51077', out: '51155' },  // sfp-sfpplus1 - PUBLIK — ROUTER B
-    C: { in: '50570', out: '50624' },  // sfp-sfpplus1-PUBLIC BACKBONE — ROUTER C
+    B: { in: '50875', out: '50947' },  // Router B — sfp-sfpplus1-PUBLIK
+    C: { in: '51132', out: '51186' },  // Router C — sfp-sfpplus1-PUBLIC BACKBONE UNAIR
 };
- 
+
 const trafficCharts = {};
- 
+
 function formatBits(bps) {
     if (bps === null || isNaN(bps)) return '-';
     const abs = Math.abs(bps);
@@ -281,29 +281,28 @@ function formatBits(bps) {
     if (abs >= 1e3) return (bps / 1e3).toFixed(2) + ' Kbps';
     return bps.toFixed(1) + ' bps';
 }
- 
+
 async function fetchMetric(itemid, period) {
-    const res = await fetch(`/perpus-metric?itemid=${itemid}&period=${period}`);
+    const res = await fetch(`/zabbix-metric?itemid=${itemid}&period=${period}`);
     return res.ok ? await res.json() : [];
 }
- 
+
 async function loadChart(type, period = 14400) {
     const ids      = ITEM_IDS[type];
     const loading  = document.getElementById('loading' + type);
     const errorEl  = document.getElementById('error' + type);
     const canvas   = document.getElementById('chart' + type);
- 
+
     loading.classList.remove('hidden');
     errorEl.classList.add('hidden');
     canvas.style.display = '';
- 
+
     try {
-        // Fetch in & out paralel
         const [dataIn, dataOut] = await Promise.all([
             fetchMetric(ids.in,  period),
             fetchMetric(ids.out, period),
         ]);
- 
+
         if (dataIn.length === 0 && dataOut.length === 0) {
             canvas.style.display = 'none';
             errorEl.textContent  = 'Tidak ada data untuk periode ini.';
@@ -311,9 +310,9 @@ async function loadChart(type, period = 14400) {
             loading.classList.add('hidden');
             return;
         }
- 
+
         if (trafficCharts[type]) trafficCharts[type].destroy();
- 
+
         const ctx = canvas.getContext('2d');
         trafficCharts[type] = new Chart(ctx, {
             type: 'line',
@@ -392,7 +391,7 @@ async function loadChart(type, period = 14400) {
                 }
             }
         });
- 
+
     } catch (err) {
         canvas.style.display = 'none';
         errorEl.textContent  = 'Gagal memuat data grafik: ' + err.message;
@@ -401,11 +400,11 @@ async function loadChart(type, period = 14400) {
         loading.classList.add('hidden');
     }
 }
- 
+
 // Load saat halaman dibuka
 loadChart('B', 14400);
 loadChart('C', 14400);
- 
+
 // Auto-refresh tiap 60 detik
 setInterval(() => {
     loadChart('B', document.getElementById('periodB').value);
