@@ -11,7 +11,7 @@ class MaintenanceSchedule extends Model
         'device_name',
         'scheduled_date',
         'next_maintenance',
-        'interval_days',       // ← BARU
+        'interval_days',       
         'is_done',
         'done_at',
         'done_by',

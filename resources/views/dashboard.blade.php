@@ -42,7 +42,7 @@
     <!-- PERPUS B -->
     <div class="bg-white rounded-xl shadow-sm p-4">
         <div class="flex items-center justify-between mb-3">
-            <h4 class="font-semibold text-[#243B7C]">TRAFIC PERPUS B</h4>
+            <h4 class="font-semibold text-[#243B7C]">TRAFFIC PERPUS B</h4>
             <div class="flex items-center gap-2">
                 <div id="loadingB" class="hidden">
                     <svg class="animate-spin w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24">
@@ -69,7 +69,7 @@
     <!-- PERPUS C -->
     <div class="bg-white rounded-xl shadow-sm p-4">
         <div class="flex items-center justify-between mb-3">
-            <h4 class="font-semibold text-[#243B7C]">TRAFIC PERPUS C</h4>
+            <h4 class="font-semibold text-[#243B7C]">TRAFFIC PERPUS C</h4>
             <div class="flex items-center gap-2">
                 <div id="loadingC" class="hidden">
                     <svg class="animate-spin w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24">
