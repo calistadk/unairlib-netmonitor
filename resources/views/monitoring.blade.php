@@ -99,9 +99,7 @@
             <th class="px-6 py-4 text-left">Availability</th>
             <th class="px-6 py-4 text-left">Health</th>
             <th class="px-6 py-4 text-left">Group</th>
-            @if(auth()->user()->isAdmin())
             <th class="px-6 py-4 text-left">Action</th>
-            @endif
         </tr>
     </thead>
 
@@ -149,7 +147,7 @@
 
             <td class="px-6 py-4 text-gray-600 text-xs">{{ $item['groups'] ?? '-' }}</td>
 
-            @if(auth()->user()->isAdmin())
+            {{-- ACTION: Detail untuk semua, Hapus hanya admin --}}
             <td class="px-6 py-4">
                 <div class="flex items-center gap-2">
                     <a href="/monitoring/{{ $item['id'] }}"
@@ -157,14 +155,15 @@
                               hover:bg-[#243B7C] transition inline-block">
                         Detail
                     </a>
+                    @if(auth()->user()->isAdmin())
                     <button onclick="confirmDelete('{{ $item['id'] }}', '{{ addslashes($item['nama']) }}')"
                         class="text-red-600 border border-red-300 text-xs px-3 py-2 rounded-lg
                                hover:bg-red-50 transition">
                         Hapus
                     </button>
+                    @endif
                 </div>
             </td>
-            @endif
 
         </tr>
         @endforeach

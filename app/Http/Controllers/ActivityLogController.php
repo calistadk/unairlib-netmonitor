@@ -11,6 +11,86 @@ class ActivityLogController extends Controller
 {
     public function index(Request $request)
     {
+        // ── Resolve range preset ──────────────────────────────────
+        $preset = $request->range_preset ?? 'all';
+        $now    = \Carbon\Carbon::now();
+        $from   = null;
+        $to     = null;
+
+        switch ($preset) {
+            case 'today':
+                $from  = $now->copy()->startOfDay();
+                $to    = $now->copy()->endOfDay();
+                $label = 'Today';
+                break;
+            case 'yesterday':
+                $from  = $now->copy()->subDay()->startOfDay();
+                $to    = $now->copy()->subDay()->endOfDay();
+                $label = 'Yesterday';
+                break;
+            case 'this_week':
+                $from  = $now->copy()->startOfWeek();
+                $to    = $now->copy()->endOfWeek();
+                $label = 'This Week';
+                break;
+            case 'prev_week':
+                $from  = $now->copy()->subWeek()->startOfWeek();
+                $to    = $now->copy()->subWeek()->endOfWeek();
+                $label = 'Previous Week';
+                break;
+            case 'this_month':
+                $from  = $now->copy()->startOfMonth();
+                $to    = $now->copy()->endOfMonth();
+                $label = 'This Month';
+                break;
+            case 'prev_month':
+                $from  = $now->copy()->subMonth()->startOfMonth();
+                $to    = $now->copy()->subMonth()->endOfMonth();
+                $label = 'Previous Month';
+                break;
+            case 'last_7':
+                $from  = $now->copy()->subDays(6)->startOfDay();
+                $to    = $now->copy()->endOfDay();
+                $label = 'Last 7 Days';
+                break;
+            case 'last_30':
+                $from  = $now->copy()->subDays(29)->startOfDay();
+                $to    = $now->copy()->endOfDay();
+                $label = 'Last 30 Days';
+                break;
+            case 'last_3months':
+                $from  = $now->copy()->subMonths(3)->startOfDay();
+                $to    = $now->copy()->endOfDay();
+                $label = 'Last 3 Months';
+                break;
+            case 'last_6months':
+                $from  = $now->copy()->subMonths(6)->startOfDay();
+                $to    = $now->copy()->endOfDay();
+                $label = 'Last 6 Months';
+                break;
+            case 'last_year':
+                $from  = $now->copy()->subYear()->startOfDay();
+                $to    = $now->copy()->endOfDay();
+                $label = 'Last 1 Year';
+                break;
+            case 'custom':
+                $from  = $request->range_from
+                    ? \Carbon\Carbon::parse($request->range_from)->startOfDay()
+                    : null;
+                $to    = $request->range_to
+                    ? \Carbon\Carbon::parse($request->range_to)->endOfDay()
+                    : null;
+                $label = ($from && $to)
+                    ? $from->format('d M Y') . ' – ' . $to->format('d M Y')
+                    : 'Custom Range';
+                break;
+            default:
+                $preset = 'all';
+                $label  = 'All Time';
+        }
+
+        $range = compact('preset', 'label', 'from', 'to');
+
         // ── Log manual dari activity_logs ──
         $logs = ActivityLog::with(['device', 'user'])->get()
             ->map(fn($log) => [
@@ -36,6 +116,16 @@ class ActivityLogController extends Controller
         // ── Gabungkan & urutkan terbaru di atas ──
         $merged = $logs->concat($maintLogs)->sortByDesc('time')->values();
 
+        // ── Filter range tanggal ──
+        if ($from || $to) {
+            $merged = $merged->filter(function ($l) use ($from, $to) {
+                $time = \Carbon\Carbon::parse($l['time']);
+                if ($from && $time->lt($from)) return false;
+                if ($to   && $time->gt($to))   return false;
+                return true;
+            })->values();
+        }
+
         // ── Filter search ──
         if ($request->search) {
             $search = strtolower($request->search);
@@ -51,21 +141,9 @@ class ActivityLogController extends Controller
             $merged = $merged->filter(fn($l) => $l['type'] === $request->type)->values();
         }
 
-        // ── Filter date ──
-        if ($request->date) {
-            $merged = $merged->filter(fn($l) =>
-                \Carbon\Carbon::parse($l['time'])->format('d-m-Y') === $request->date
-            )->values();
-        }
-
-        // ── Dropdown tanggal unik ──
-        $dates = $merged->map(fn($l) =>
-            \Carbon\Carbon::parse($l['time'])->format('d-m-Y')
-        )->unique()->values()->toArray();
-
         $devices = Device::orderBy('device_id')->get();
 
-        return view('log', compact('merged', 'dates', 'devices'));
+        return view('log', compact('merged', 'range', 'devices'));
     }
 
     public function store(Request $request)
