@@ -62,7 +62,7 @@
     </select>
 
     <!-- ===== EXPORT BUTTON ===== -->
-    <button onclick="exportToExcel()"
+    <button onclick="openExportModal()"
         class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm
                font-semibold rounded-lg hover:bg-green-700 transition whitespace-nowrap">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -292,13 +292,13 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         Templates
-                        <span class="text-gray-400 font-normal">(bisa pilih lebih dari satu)</span>
+                        <span class="text-gray-400 font-normal">(select one or more)</span>
                     </label>
                     <select name="template_ids[]" id="edit_templates" multiple
                         class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm
                                focus:outline-none focus:ring-2 focus:ring-blue-300 min-h-[90px]">
                     </select>
-                    <p class="text-xs text-gray-400 mt-1">Tahan Ctrl / Cmd untuk pilih lebih dari satu.</p>
+                    <p class="text-xs text-gray-400 mt-1">Hold Ctrl / Cmd to select more than one.</p>
                 </div>
 
             </div>
@@ -448,14 +448,14 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         Templates
-                        <span class="text-gray-400 font-normal">(opsional, bisa pilih lebih dari satu)</span>
+                        <span class="text-gray-400 font-normal">(optional, select one or more)</span>
                     </label>
                     <select name="template_ids[]" id="zbx_templates" multiple
                         class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm
                                focus:outline-none focus:ring-2 focus:ring-blue-300 min-h-[80px]">
                         <option value="" disabled>-- Loading templates... --</option>
                     </select>
-                    <p class="text-xs text-gray-400 mt-1">Tahan Ctrl / Cmd untuk pilih lebih dari satu.</p>
+                    <p class="text-xs text-gray-400 mt-1">Hold Ctrl / Cmd to select more than one..</p>
                 </div>
 
             </div>
@@ -478,6 +478,57 @@
 </div>
 
 @endif {{-- end @if(auth()->user()->isAdmin()) --}}
+
+<!-- ===================================================================
+     MODAL EXPORT EXCEL
+     =================================================================== -->
+<div id="exportModal"
+     class="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-[2px] z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-7">
+
+        <div class="flex items-center justify-between mb-5">
+            <div>
+                <h3 class="text-lg font-bold text-[#243B7C]">Export Excel</h3>
+                <p class="text-xs text-gray-400 mt-0.5">Select group to export</p>
+            </div>
+            <button onclick="closeExportModal()"
+                class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+
+        {{-- Opsi "All Groups" --}}
+        <label class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200
+                       cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition mb-3">
+            <input type="checkbox" id="exportCheckAll" onchange="toggleExportAll(this)"
+                class="w-4 h-4 accent-[#243B7C] cursor-pointer">
+            <span class="text-sm font-semibold text-gray-700">All Groups</span>
+            <span id="exportCountAll" class="ml-auto text-xs text-gray-400"></span>
+        </label>
+
+        <div class="h-px bg-gray-200 mb-3"></div>
+
+        {{-- Daftar group dinamis (diisi JS) --}}
+        <div id="exportGroupList"
+             class="space-y-1.5 max-h-60 overflow-y-auto pr-1 mb-5">
+            {{-- Diisi oleh openExportModal() --}}
+        </div>
+
+        <div class="flex justify-end gap-3 mt-2">
+            <button onclick="closeExportModal()"
+                class="px-5 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 text-sm">
+                Batal
+            </button>
+            <button onclick="doExport()"
+                class="flex items-center gap-2 px-5 py-2 rounded-lg bg-green-600 text-white
+                       font-semibold hover:bg-green-700 text-sm transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                Download
+            </button>
+        </div>
+    </div>
+</div>
 
 <!-- ================= SCRIPT ================= -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -505,42 +556,140 @@ function filterDevice() {
     document.getElementById('emptyDevice').classList.toggle('hidden', visible > 0);
 }
 
-// ── Export Excel ─────────────────────────────────────────
-function exportToExcel() {
-    const headers = ['No.', 'Host', 'IP Address', 'Interface Type', 'Status', 'Group', 'Type', 'Vendor & Model', 'Serial', 'OS', 'Location'];
-    const rows = [headers];
-
-    let no = 1;
-    document.querySelectorAll('.device-row:not(.hidden)').forEach(row => {
-        const cells = row.querySelectorAll('td');
-        rows.push([
-            no++,
-            cells[1]?.innerText?.trim() ?? '',
-            cells[2]?.innerText?.trim() ?? '',
-            row.dataset.iface ?? '',
-            row.dataset.status ?? '',
-            cells[4]?.innerText?.trim() ?? '',
-            cells[5]?.innerText?.trim() ?? '',
-            cells[6]?.innerText?.trim() ?? '',
-            cells[7]?.innerText?.trim() ?? '',
-            cells[8]?.innerText?.trim() ?? '',
-            cells[9]?.innerText?.trim() ?? '',
-        ]);
+// ── Export Excel Modal ───────────────────────────────────
+function openExportModal() {
+    // Kumpulkan semua group unik beserta jumlah device-nya (dari SEMUA baris, bukan hanya visible)
+    const groupCount = {};
+    document.querySelectorAll('.device-row').forEach(row => {
+        const g = row.dataset.group;
+        if (g && g.trim() !== '') groupCount[g] = (groupCount[g] || 0) + 1;
     });
 
-    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const groups  = Object.keys(groupCount).sort();
+    const total   = Object.values(groupCount).reduce((a, b) => a + b, 0);
+    const list    = document.getElementById('exportGroupList');
+    const checkAll = document.getElementById('exportCheckAll');
 
-    // Column widths
-    ws['!cols'] = [
+    // Reset state
+    checkAll.checked      = false;
+    checkAll.indeterminate = false;
+    document.getElementById('exportCountAll').textContent = `${total} devices`;
+
+    // Render checkbox per group
+    list.innerHTML = groups.map(g => `
+        <label class="flex items-center gap-3 px-3 py-2 rounded-lg border border-transparent
+                       cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition export-group-label">
+            <input type="checkbox" value="${g}" onchange="syncExportAll()"
+                class="export-group-chk w-4 h-4 accent-[#243B7C] cursor-pointer">
+            <span class="text-sm text-gray-700 flex-1">${g}</span>
+            <span class="text-xs text-gray-400">${groupCount[g]} devices</span>
+        </label>
+    `).join('');
+
+    document.getElementById('exportModal').classList.remove('hidden');
+}
+
+function closeExportModal() {
+    document.getElementById('exportModal').classList.add('hidden');
+}
+
+document.getElementById('exportModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('exportModal')) closeExportModal();
+});
+
+// Centang / uncek semua group sekaligus
+function toggleExportAll(cb) {
+    document.querySelectorAll('.export-group-chk').forEach(chk => {
+        chk.checked = cb.checked;
+    });
+}
+
+// Sinkronisasi state checkbox "All" berdasarkan pilihan individual
+function syncExportAll() {
+    const all     = document.querySelectorAll('.export-group-chk');
+    const checked = document.querySelectorAll('.export-group-chk:checked');
+    const cb      = document.getElementById('exportCheckAll');
+
+    if (checked.length === 0) {
+        cb.checked = false; cb.indeterminate = false;
+    } else if (checked.length === all.length) {
+        cb.checked = true;  cb.indeterminate = false;
+    } else {
+        cb.checked = false; cb.indeterminate = true;
+    }
+}
+
+// Eksekusi download setelah user klik Download
+function doExport() {
+    const selected = [...document.querySelectorAll('.export-group-chk:checked')].map(c => c.value);
+
+    if (selected.length === 0) {
+        alert('Pilih minimal satu group untuk diekspor.');
+        return;
+    }
+
+    const allGroups = [...document.querySelectorAll('.export-group-chk')].map(c => c.value);
+    const isAll     = selected.length === allGroups.length;
+    const date      = new Date().toISOString().slice(0, 10);
+
+    const colWidths = [
         { wch: 5 }, { wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 10 },
         { wch: 20 }, { wch: 14 }, { wch: 22 }, { wch: 18 }, { wch: 16 }, { wch: 20 }
     ];
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Device Data');
+    function buildRows(groupName) {
+        const headers = ['No.', 'Host', 'IP Address', 'Interface Type', 'Status',
+                         'Group', 'Type', 'Vendor & Model', 'Serial', 'OS', 'Location'];
+        const data = [headers];
+        let no = 1;
+        document.querySelectorAll('.device-row').forEach(row => {
+            if (row.dataset.group !== groupName) return;
+            const cells = row.querySelectorAll('td');
+            data.push([
+                no++,
+                cells[1]?.innerText?.trim() ?? '',
+                cells[2]?.innerText?.trim() ?? '',
+                row.dataset.iface  ?? '',
+                row.dataset.status ?? '',
+                cells[4]?.innerText?.trim() ?? '',
+                cells[5]?.innerText?.trim() ?? '',
+                cells[6]?.innerText?.trim() ?? '',
+                cells[7]?.innerText?.trim() ?? '',
+                cells[8]?.innerText?.trim() ?? '',
+                cells[9]?.innerText?.trim() ?? '',
+            ]);
+        });
+        return data;
+    }
 
-    const date = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(wb, `device-data-${date}.xlsx`);
+    const wb = XLSX.utils.book_new();
+
+    selected.forEach(group => {
+        const rows = buildRows(group);
+        if (rows.length <= 1) return;
+        const ws        = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols']     = colWidths;
+        const sheetName = group.replace(/[\\\/\?\*\[\]:]/g, '').substring(0, 31);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    });
+
+    if (!wb.SheetNames.length) {
+        alert('Tidak ada data pada group yang dipilih.');
+        return;
+    }
+
+    let fileName;
+    if (isAll) {
+        fileName = `device-all-groups-${date}.xlsx`;
+    } else if (selected.length === 1) {
+        const safe = selected[0].replace(/[^a-zA-Z0-9_\-]/g, '_');
+        fileName   = `device-${safe}-${date}.xlsx`;
+    } else {
+        fileName = `device-${selected.length}groups-${date}.xlsx`;
+    }
+
+    XLSX.writeFile(wb, fileName);
+    closeExportModal();
 }
 
 @if(auth()->user()->isAdmin())

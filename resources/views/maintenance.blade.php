@@ -45,7 +45,7 @@
     @endif
 
     <!-- ===== EXPORT BUTTON ===== -->
-    <button onclick="exportToExcel()"
+    <button onclick="openExportModal()"
         class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm
                font-semibold rounded-lg hover:bg-green-700 transition whitespace-nowrap {{ $range['preset'] === 'active' ? 'ml-auto' : '' }}">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -541,6 +541,63 @@
 </div>
 @endif
 
+<!-- ================= MODAL EXPORT EXCEL ================= -->
+<div id="exportModal"
+     class="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-[2px] z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-7">
+
+        <div class="flex items-center justify-between mb-5">
+            <div>
+                <h3 class="text-lg font-bold text-[#243B7C]">Export Excel</h3>
+                <p class="text-xs text-gray-400 mt-0.5">Select the period you want to export</p>
+            </div>
+            <button onclick="closeExportModal()"
+                class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+
+        <div class="space-y-1.5 mb-5 max-h-60 overflow-y-auto pr-1" id="exportPeriodList">
+            @php
+            $exportPresets = [
+                ['today',        'Today',        'Maintenance records from today'],
+                ['yesterday',    'Yesterday',    'Maintenance records from yesterday'],
+                ['last_7',       'Last 7 Days',  'Past 7 days including today'],
+                ['last_30',      'Last 30 Days', 'Past 30 days including today'],
+                ['last_6months', 'Last 6 Months','Past 6 months including today'],
+                ['last_year',    'Last 1 Year',  'Past 12 months including today'],
+            ];
+            @endphp
+            @foreach($exportPresets as [$key, $label, $desc])
+            <label class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200
+                           cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition group">
+                <input type="radio" name="exportPeriod" value="{{ $key }}"
+                    class="w-4 h-4 accent-[#243B7C] cursor-pointer"
+                    {{ $loop->first ? 'checked' : '' }}>
+                <div class="flex-1">
+                    <span class="text-sm font-semibold text-gray-700 group-hover:text-[#243B7C]">{{ $label }}</span>
+                    <span class="text-xs text-gray-400 block leading-tight">{{ $desc }}</span>
+                </div>
+            </label>
+            @endforeach
+        </div>
+
+        <div class="flex justify-end gap-3 mt-2">
+            <button onclick="closeExportModal()"
+                class="px-5 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 text-sm">
+                Cancel
+            </button>
+            <button onclick="doExport()"
+                class="flex items-center gap-2 px-5 py-2 rounded-lg bg-green-600 text-white
+                       font-semibold hover:bg-green-700 text-sm transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                Download
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- ================= SCRIPT ================= -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
@@ -575,30 +632,106 @@ function applyFilters() {
 
 document.getElementById('searchInput').addEventListener('input', applyFilters);
 
-// ── Export Excel ─────────────────────────────────────────────
-function exportToExcel() {
+// ── Export Excel Modal ────────────────────────────────────
+function openExportModal() {
+    document.getElementById('exportModal').classList.remove('hidden');
+}
+
+function closeExportModal() {
+    document.getElementById('exportModal').classList.add('hidden');
+}
+
+document.getElementById('exportModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('exportModal')) closeExportModal();
+});
+
+// Hitung batas tanggal berdasarkan preset yang dipilih
+function getDateRange(preset) {
+    const now   = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const endOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+
+    switch (preset) {
+        case 'today':
+            return { from: today, to: endOfDay(today), label: 'Today' };
+        case 'yesterday': {
+            const yest = new Date(today); yest.setDate(yest.getDate() - 1);
+            return { from: yest, to: endOfDay(yest), label: 'Yesterday' };
+        }
+        case 'last_7': {
+            const f = new Date(today); f.setDate(f.getDate() - 6);
+            return { from: f, to: endOfDay(today), label: 'Last 7 Days' };
+        }
+        case 'last_30': {
+            const f = new Date(today); f.setDate(f.getDate() - 29);
+            return { from: f, to: endOfDay(today), label: 'Last 30 Days' };
+        }
+        case 'last_6months': {
+            const f = new Date(today); f.setMonth(f.getMonth() - 6);
+            return { from: f, to: endOfDay(today), label: 'Last 6 Months' };
+        }
+        case 'last_year': {
+            const f = new Date(today); f.setFullYear(f.getFullYear() - 1);
+            return { from: f, to: endOfDay(today), label: 'Last 1 Year' };
+        }
+        default:
+            return { from: null, to: null, label: 'All' };
+    }
+}
+
+// Parse tanggal dari data-* attribute (format: "dd MMM YYYY, HH:mm" atau "dd MMM YYYY" atau "Never" / "-")
+function parseDataDate(str) {
+    if (!str || str === 'Never' || str === '-') return null;
+    const clean = str.replace(/,.*$/, '').trim(); // buang bagian waktu
+    const d = new Date(clean);
+    return isNaN(d) ? null : d;
+}
+
+function doExport() {
+    const preset = document.querySelector('input[name="exportPeriod"]:checked')?.value;
+    if (!preset) { alert('Please select a period first.'); return; }
+
+    const { from, to, label } = getDateRange(preset);
+
     const headers = [
         'No.', 'Device Name', 'IP Address', 'Group', 'Availability',
         'Maintenance Status', 'Last Maintenance', 'Next Maintenance', 'Interval', 'Done By'
     ];
     const rows = [headers];
-
     let no = 1;
+
     document.querySelectorAll('.device-row').forEach(row => {
-        if (row.style.display === 'none') return;
+        const lastMaintStr  = row.dataset.lastMaint ?? '';
+        const lastMaintDate = parseDataDate(lastMaintStr);
+
+        // Filter berdasarkan rentang tanggal last maintenance
+        let include = false;
+        if (from && to) {
+            include = lastMaintDate !== null && lastMaintDate >= from && lastMaintDate <= to;
+        } else {
+            include = true;
+        }
+        if (!include) return;
+
         rows.push([
             no++,
-            row.dataset.device      ?? '',
-            row.dataset.ip          ?? '',
-            row.dataset.groupVal    ?? '',
-            row.dataset.availability ?? '',
+            row.dataset.device           ?? '',
+            row.dataset.ip               ?? '',
+            row.dataset.groupVal         ?? '',
+            row.dataset.availability     ?? '',
             row.dataset.maintStatusLabel ?? '',
-            row.dataset.lastMaint   ?? '',
-            row.dataset.nextMaint   ?? '',
-            row.dataset.interval    ?? '',
-            row.dataset.doneBy      ?? '',
+            lastMaintStr,
+            row.dataset.nextMaint        ?? '',
+            row.dataset.interval         ?? '',
+            row.dataset.doneBy           ?? '',
         ]);
     });
+
+    if (rows.length <= 1) {
+        alert(`No maintenance data found for the "${label}" period.`);
+        return;
+    }
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws['!cols'] = [
@@ -606,11 +739,15 @@ function exportToExcel() {
         { wch: 18 }, { wch: 22 }, { wch: 18 }, { wch: 10 }, { wch: 18 }
     ];
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Maintenance Schedule');
+    const wb       = XLSX.utils.book_new();
+    const sheet    = label.replace(/[\\/\?\*\[\]:]/g, '').substring(0, 31);
+    XLSX.utils.book_append_sheet(wb, ws, sheet);
 
-    const date = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(wb, `maintenance-schedule-${date}.xlsx`);
+    const date     = new Date().toISOString().slice(0, 10);
+    const safeName = label.replace(/\s+/g, '-').toLowerCase();
+    XLSX.writeFile(wb, `maintenance-${safeName}-${date}.xlsx`);
+
+    closeExportModal();
 }
 
 @if(auth()->user()->isAdmin())
