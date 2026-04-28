@@ -13,6 +13,11 @@
     {{ session('success') }}
 </div>
 @endif
+@if (session('error'))
+<div class="mb-4 px-4 py-3 bg-red-100 text-red-700 rounded-lg text-sm">
+    {{ session('error') }}
+</div>
+@endif
 
 <!-- ================= TIME RANGE PICKER BAR ================= -->
 <div class="bg-white rounded-xl shadow-sm px-5 py-3 mb-6 flex items-center gap-4 flex-wrap relative">
@@ -44,7 +49,7 @@
     </span>
     @endif
 
-    <!-- ===== EXPORT BUTTON ===== -->
+    <!-- Export Button -->
     <button onclick="openExportModal()"
         class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm
                font-semibold rounded-lg hover:bg-green-700 transition whitespace-nowrap {{ $range['preset'] === 'active' ? 'ml-auto' : '' }}">
@@ -67,29 +72,22 @@
             <!-- Custom date inputs -->
             <div class="w-64 border-r border-gray-100 p-5 flex-shrink-0">
                 <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Custom Range</p>
-
                 <form method="GET" action="{{ route('maintenance.index') }}" id="rangeForm">
                     <input type="hidden" name="range_preset" value="custom">
-
                     <div class="mb-3">
                         <label class="block text-xs text-gray-500 mb-1">From</label>
                         <input type="date" name="range_from"
                             value="{{ $range['preset'] === 'custom' && $range['from'] ? $range['from']->format('Y-m-d') : '' }}"
-                            class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm
-                                   focus:outline-none focus:ring-2 focus:ring-blue-300">
+                            class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
                     </div>
-
                     <div class="mb-4">
                         <label class="block text-xs text-gray-500 mb-1">To</label>
                         <input type="date" name="range_to"
                             value="{{ $range['preset'] === 'custom' && $range['to'] ? $range['to']->format('Y-m-d') : '' }}"
-                            class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm
-                                   focus:outline-none focus:ring-2 focus:ring-blue-300">
+                            class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
                     </div>
-
                     <button type="submit"
-                        class="w-full py-2 bg-[#243B7C] text-white text-sm font-semibold
-                               rounded-lg hover:bg-blue-800 transition">
+                        class="w-full py-2 bg-[#243B7C] text-white text-sm font-semibold rounded-lg hover:bg-blue-800 transition">
                         Apply
                     </button>
                 </form>
@@ -98,7 +96,6 @@
             <!-- Preset buttons -->
             <div class="flex-1 p-5">
                 <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Quick Select</p>
-
                 @php
                 $presetCols = [
                     [
@@ -119,7 +116,6 @@
                     ],
                 ];
                 @endphp
-
                 <div class="grid grid-cols-2 gap-x-4 gap-y-1">
                     @foreach($presetCols as $col)
                     <div class="space-y-1">
@@ -136,7 +132,6 @@
                     @endforeach
                 </div>
             </div>
-
         </div>
     </div>
 </div>
@@ -193,7 +188,7 @@
     <form id="maintenanceForm" action="{{ route('maintenance.store') }}" method="POST">
         @csrf
 
-        {{-- Header --}}
+        <!-- Header -->
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
             <div>
                 <h3 class="text-lg font-bold text-[#243B7C]">Device List</h3>
@@ -205,7 +200,6 @@
             </div>
 
             <div class="flex items-center gap-3">
-
                 <div class="relative">
                     <input type="text" id="searchInput" placeholder="Search device..."
                         class="pl-8 pr-4 py-2 text-sm border border-gray-200 rounded-lg
@@ -233,11 +227,10 @@
                     <option value="done">Done</option>
                     <option value="pending">Pending</option>
                 </select>
-
             </div>
         </div>
 
-        {{-- Table --}}
+        <!-- Table -->
         <div class="overflow-x-auto overflow-y-auto max-h-[55vh]">
             <table class="w-full text-sm" id="maintenanceTable">
                 <thead class="text-[#243B7C] font-semibold border-b-2 border-gray-200 sticky top-0 z-10 bg-white">
@@ -264,6 +257,9 @@
                         <th class="px-6 py-3 text-left whitespace-nowrap">Next Maintenance</th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">Interval</th>
                         <th class="px-6 py-3 text-left whitespace-nowrap">Done By</th>
+                        @if(auth()->user()->isAdmin())
+                        <th class="px-6 py-3 text-left whitespace-nowrap">Action</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100" id="deviceTableBody">
@@ -290,7 +286,7 @@
                         data-interval="{{ $lastMaint ? $intervalDays . 'd' : '-' }}"
                         data-done-by="{{ ($isDoneInRange && $rangeRecord) ? ($rangeRecord->doneBy->name ?? 'System') : (($isDoneToday && $lastMaint) ? ($lastMaint->doneBy->name ?? 'System') : '-') }}">
 
-                        {{-- Checkbox --}}
+                        <!-- Checkbox -->
                         <td class="px-6 py-3">
                             @if(auth()->user()->isAdmin())
                                 <input type="checkbox"
@@ -309,22 +305,22 @@
                             @endif
                         </td>
 
-                        {{-- Device Name --}}
+                        <!-- Device Name -->
                         <td class="px-6 py-3 font-medium text-gray-800 whitespace-nowrap">
                             {{ $device['host'] }}
                         </td>
 
-                        {{-- IP --}}
+                        <!-- IP -->
                         <td class="px-6 py-3 text-gray-600 whitespace-nowrap font-mono text-xs">
                             {{ $device['ip'] }}
                         </td>
 
-                        {{-- Group --}}
+                        <!-- Group -->
                         <td class="px-6 py-3 text-gray-600 text-xs whitespace-nowrap">
                             {{ $device['groups'] ?? '-' }}
                         </td>
 
-                        {{-- Availability --}}
+                        <!-- Availability -->
                         <td class="px-6 py-3 whitespace-nowrap">
                             @php
                                 $availBadge = match($device['status']) {
@@ -338,7 +334,7 @@
                             </span>
                         </td>
 
-                        {{-- Maintenance Status --}}
+                        <!-- Maintenance Status -->
                         <td class="px-6 py-3 whitespace-nowrap">
                             @if($isDoneInRange)
                                 <span class="text-white text-xs font-bold px-2 py-1 rounded bg-green-500">Done</span>
@@ -352,7 +348,7 @@
                             @endif
                         </td>
 
-                        {{-- Last Maintenance --}}
+                        <!-- Last Maintenance -->
                         <td class="px-6 py-3 text-gray-600 whitespace-nowrap text-xs">
                             @if($lastMaint)
                                 <span>{{ $lastMaint->done_at ? $lastMaint->done_at->format('d M Y, H:i') : $lastMaint->scheduled_date->format('d M Y') }}</span>
@@ -364,7 +360,7 @@
                             @endif
                         </td>
 
-                        {{-- Next Maintenance --}}
+                        <!-- Next Maintenance -->
                         <td class="px-6 py-3 whitespace-nowrap text-xs">
                             @if($nextMaint)
                                 @php $next = \Carbon\Carbon::parse($nextMaint); @endphp
@@ -380,7 +376,7 @@
                             @endif
                         </td>
 
-                        {{-- Interval --}}
+                        <!-- Interval -->
                         <td class="px-6 py-3 whitespace-nowrap text-xs text-gray-500">
                             @if($lastMaint)
                                 <span class="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-medium">
@@ -394,7 +390,7 @@
                             @endif
                         </td>
 
-                        {{-- Done By --}}
+                        <!-- Done By -->
                         <td class="px-6 py-3 text-gray-600 whitespace-nowrap text-xs">
                             @if($isDoneInRange && $rangeRecord)
                                 {{ $rangeRecord->doneBy->name ?? 'System' }}
@@ -407,12 +403,30 @@
                             @endif
                         </td>
 
+                        <!-- Action: Tandai Rusak (admin only) -->
+                        @if(auth()->user()->isAdmin())
+                        <td class="px-6 py-3 whitespace-nowrap">
+                            <button type="button"
+                                onclick="openBrokenModal(
+                                    '{{ $device['hostid'] }}',
+                                    '{{ addslashes($device['host']) }}',
+                                    '{{ $device['ip'] }}',
+                                    '{{ addslashes($device['groups'] ?? '') }}')"
+                                class="text-orange-500 border border-orange-300 text-xs px-3 py-2
+                                       rounded-lg hover:bg-orange-50 transition whitespace-nowrap">
+                                Rusak
+                            </button>
+                        </td>
+                        @endif
+
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="10" class="px-6 py-16 text-center text-gray-400 text-sm">
+                        <td colspan="{{ auth()->user()->isAdmin() ? 11 : 10 }}"
+                            class="px-6 py-16 text-center text-gray-400 text-sm">
                             <svg class="w-10 h-10 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                      d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                             </svg>
                             No devices found. Make sure Zabbix is connected.
                         </td>
@@ -426,7 +440,7 @@
             </div>
         </div>
 
-        {{-- Action Bar: admin only --}}
+        <!-- Action Bar: admin only -->
         @if(auth()->user()->isAdmin())
         <div class="flex items-center justify-between px-6 py-3 bg-gray-50 border-t border-gray-200">
             <div class="text-sm text-gray-500">
@@ -449,7 +463,80 @@
     </form>
 </div>
 
-<!-- ================= CONFIRM MODAL (admin only) ================= -->
+
+<!-- ===================================================================
+     MODAL TANDAI RUSAK  (admin only)
+     =================================================================== -->
+@if(auth()->user()->isAdmin())
+<div id="brokenModal"
+     class="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-[2px] z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-8">
+
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h3 class="text-lg font-bold text-[#243B7C]">Tandai Device Rusak</h3>
+                <p id="brokenModalSubtitle" class="text-xs text-gray-400 mt-0.5"></p>
+            </div>
+            <button onclick="closeBrokenModal()"
+                class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+
+        <div class="flex justify-center mb-5">
+            <div class="w-14 h-14 rounded-full bg-orange-100 flex items-center justify-center">
+                <svg class="w-7 h-7 text-orange-500" fill="none" stroke="currentColor" stroke-width="2"
+                     viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+            </div>
+        </div>
+
+        <form action="{{ route('broken.store') }}" method="POST">
+            @csrf
+            <input type="hidden" name="hostid"    id="broken_hostid">
+            <input type="hidden" name="host_name" id="broken_host_name">
+            <input type="hidden" name="ip"        id="broken_ip">
+            <input type="hidden" name="groups"    id="broken_groups">
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Alasan Rusak <span class="text-red-500">*</span>
+                </label>
+                <textarea name="reason" rows="3" required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm
+                           focus:outline-none focus:ring-2 focus:ring-orange-300 resize-none"
+                    placeholder="e.g. PSU terbakar, tidak dapat diperbaiki..."></textarea>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Tanggal Rusak <span class="text-red-500">*</span>
+                </label>
+                <input type="date" name="broken_date" required
+                    value="{{ date('Y-m-d') }}"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm
+                           focus:outline-none focus:ring-2 focus:ring-orange-300">
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="closeBrokenModal()"
+                    class="px-5 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold
+                           hover:bg-gray-300 text-sm">
+                    Batal
+                </button>
+                <button type="submit"
+                    class="px-5 py-2 rounded-lg bg-orange-500 text-white font-semibold
+                           hover:bg-orange-600 text-sm transition">
+                    Tandai Rusak
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+@endif
+
+
+<!-- ================= MODAL CONFIRM MAINTENANCE (admin only) ================= -->
 @if(auth()->user()->isAdmin())
 <div id="confirmModal"
      class="fixed inset-0 bg-black bg-opacity-20 backdrop-blur-[2px] z-50 hidden flex items-center justify-center">
@@ -467,9 +554,7 @@
         </div>
 
         <div class="mb-4">
-            <label class="block text-sm font-semibold text-gray-700 mb-2">
-                Next Maintenance Interval
-            </label>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Next Maintenance Interval</label>
             <div class="flex gap-2 mb-3" id="intervalPresets">
                 <button type="button" data-days="1"
                     class="interval-preset flex-1 py-1.5 text-xs font-semibold rounded-lg border border-gray-200
@@ -510,18 +595,13 @@
                                focus:outline-none focus:ring-2 focus:ring-blue-400">
                     <span class="absolute right-3 top-2 text-xs text-gray-400">days</span>
                 </div>
-                <p id="nextMaintPreview" class="text-xs text-blue-600 font-medium whitespace-nowrap">
-                    Next: —
-                </p>
+                <p id="nextMaintPreview" class="text-xs text-blue-600 font-medium whitespace-nowrap">Next: —</p>
             </div>
         </div>
 
         <div class="mb-5">
             <label class="block text-sm text-gray-700 mb-1">Notes (optional)</label>
-            <textarea name="notes"
-                id="notesInput"
-                rows="3"
-                form="maintenanceForm"
+            <textarea name="notes" id="notesInput" rows="3" form="maintenanceForm"
                 class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2
                        focus:ring-blue-400 resize-none text-sm"
                 placeholder="e.g. Cleaned fan, updated firmware..."></textarea>
@@ -540,6 +620,7 @@
     </div>
 </div>
 @endif
+
 
 <!-- ================= MODAL EXPORT EXCEL ================= -->
 <div id="exportModal"
@@ -598,19 +679,20 @@
     </div>
 </div>
 
+
 <!-- ================= SCRIPT ================= -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
-// ── Range Picker ─────────────────────────────────────────────
+
+// ── Range Picker ──────────────────────────────────────────
 document.getElementById('btnOpenRangePicker').addEventListener('click', function () {
     document.getElementById('rangePickerPanel').classList.toggle('hidden');
 });
-
 function closeRangePicker() {
     document.getElementById('rangePickerPanel').classList.add('hidden');
 }
 
-// ── Filter Table ─────────────────────────────────────────────
+// ── Filter Table ──────────────────────────────────────────
 function applyFilters() {
     const search      = document.getElementById('searchInput').value.toLowerCase().trim();
     const group       = document.getElementById('filterGroup').value;
@@ -629,32 +711,25 @@ function applyFilters() {
 
     document.getElementById('emptyFilter').classList.toggle('hidden', visible > 0);
 }
-
 document.getElementById('searchInput').addEventListener('input', applyFilters);
 
-// ── Export Excel Modal ────────────────────────────────────
+// ── Export Modal ──────────────────────────────────────────
 function openExportModal() {
     document.getElementById('exportModal').classList.remove('hidden');
 }
-
 function closeExportModal() {
     document.getElementById('exportModal').classList.add('hidden');
 }
-
 document.getElementById('exportModal').addEventListener('click', e => {
     if (e.target === document.getElementById('exportModal')) closeExportModal();
 });
 
-// Hitung batas tanggal berdasarkan preset yang dipilih
 function getDateRange(preset) {
     const now   = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
     const endOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
-
     switch (preset) {
-        case 'today':
-            return { from: today, to: endOfDay(today), label: 'Today' };
+        case 'today':      return { from: today, to: endOfDay(today), label: 'Today' };
         case 'yesterday': {
             const yest = new Date(today); yest.setDate(yest.getDate() - 1);
             return { from: yest, to: endOfDay(yest), label: 'Yesterday' };
@@ -675,15 +750,13 @@ function getDateRange(preset) {
             const f = new Date(today); f.setFullYear(f.getFullYear() - 1);
             return { from: f, to: endOfDay(today), label: 'Last 1 Year' };
         }
-        default:
-            return { from: null, to: null, label: 'All' };
+        default: return { from: null, to: null, label: 'All' };
     }
 }
 
-// Parse tanggal dari data-* attribute (format: "dd MMM YYYY, HH:mm" atau "dd MMM YYYY" atau "Never" / "-")
 function parseDataDate(str) {
     if (!str || str === 'Never' || str === '-') return null;
-    const clean = str.replace(/,.*$/, '').trim(); // buang bagian waktu
+    const clean = str.replace(/,.*$/, '').trim();
     const d = new Date(clean);
     return isNaN(d) ? null : d;
 }
@@ -693,7 +766,6 @@ function doExport() {
     if (!preset) { alert('Please select a period first.'); return; }
 
     const { from, to, label } = getDateRange(preset);
-
     const headers = [
         'No.', 'Device Name', 'IP Address', 'Group', 'Availability',
         'Maintenance Status', 'Last Maintenance', 'Next Maintenance', 'Interval', 'Done By'
@@ -704,8 +776,6 @@ function doExport() {
     document.querySelectorAll('.device-row').forEach(row => {
         const lastMaintStr  = row.dataset.lastMaint ?? '';
         const lastMaintDate = parseDataDate(lastMaintStr);
-
-        // Filter berdasarkan rentang tanggal last maintenance
         let include = false;
         if (from && to) {
             include = lastMaintDate !== null && lastMaintDate >= from && lastMaintDate <= to;
@@ -713,7 +783,6 @@ function doExport() {
             include = true;
         }
         if (!include) return;
-
         rows.push([
             no++,
             row.dataset.device           ?? '',
@@ -746,12 +815,27 @@ function doExport() {
     const date     = new Date().toISOString().slice(0, 10);
     const safeName = label.replace(/\s+/g, '-').toLowerCase();
     XLSX.writeFile(wb, `maintenance-${safeName}-${date}.xlsx`);
-
     closeExportModal();
 }
 
+// ── Broken Device Modal ───────────────────────────────────
+function openBrokenModal(hostid, hostName, ip, groups) {
+    document.getElementById('broken_hostid').value    = hostid;
+    document.getElementById('broken_host_name').value = hostName;
+    document.getElementById('broken_ip').value        = ip;
+    document.getElementById('broken_groups').value    = groups;
+    document.getElementById('brokenModalSubtitle').textContent = hostName;
+    document.getElementById('brokenModal').classList.remove('hidden');
+}
+function closeBrokenModal() {
+    document.getElementById('brokenModal').classList.add('hidden');
+}
+document.getElementById('brokenModal')?.addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeBrokenModal();
+});
+
 @if(auth()->user()->isAdmin())
-// ── Checkbox logic ────────────────────────────────────────────
+// ── Checkbox logic ────────────────────────────────────────
 function getCheckboxes() {
     return [...document.querySelectorAll('.device-cb:not([disabled])')];
 }
@@ -759,16 +843,13 @@ function getCheckboxes() {
 function updateUI() {
     const checked = getCheckboxes().filter(c => c.checked);
     const count   = checked.length;
-
     document.getElementById('selCount').textContent  = count;
     document.getElementById('markCount').textContent = count;
     document.getElementById('submitBtn').disabled    = count === 0;
-
     const all      = getCheckboxes();
     const checkAll = document.getElementById('checkAll');
     checkAll.indeterminate = count > 0 && count < all.length;
     checkAll.checked       = all.length > 0 && count === all.length;
-
     getCheckboxes().forEach(cb => {
         const row = cb.closest('tr');
         if (cb.checked) row.classList.add('bg-blue-50');
@@ -790,7 +871,7 @@ document.querySelectorAll('.device-cb').forEach(cb => {
     cb.addEventListener('change', updateUI);
 });
 
-// ── Interval picker ───────────────────────────────────────────
+// ── Interval picker ───────────────────────────────────────
 const intervalInput    = document.getElementById('intervalCustomInput');
 const nextMaintPreview = document.getElementById('nextMaintPreview');
 const presetBtns       = document.querySelectorAll('.interval-preset');
@@ -835,21 +916,18 @@ intervalInput.addEventListener('input', function () {
     });
 });
 
-// ── Confirm modal ─────────────────────────────────────────────
+// ── Confirm modal ─────────────────────────────────────────
 function openConfirmModal() {
     const checked = getCheckboxes().filter(c => c.checked);
     if (checked.length === 0) return;
-
     const list = document.getElementById('selectedDevicesList');
     list.innerHTML = '';
     checked.forEach(cb => {
         const div = document.createElement('div');
         div.className = 'flex items-center gap-2';
-        div.innerHTML = `<span class="text-blue-500 font-bold">✓</span>
-                         <span>${cb.dataset.name}</span>`;
+        div.innerHTML = `<span class="text-blue-500 font-bold">✓</span><span>${cb.dataset.name}</span>`;
         list.appendChild(div);
     });
-
     setIntervalValue(3);
     document.getElementById('notesInput').value = '';
     document.getElementById('confirmModal').classList.remove('hidden');
@@ -863,6 +941,7 @@ document.getElementById('confirmModal').addEventListener('click', function (e) {
     if (e.target === this) closeConfirmModal();
 });
 @endif
+
 </script>
 
 @endsection

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BrokenDeviceController;
 
 define('ZABBIX_URL',  "http://210.57.222.125:8481/zabbix");
 define('ZABBIX_USER', "Admin");
@@ -722,8 +723,10 @@ Route::middleware('auth')->group(function () {
                 'notes'      => $inv['notes'] ?? '',
             ];
         }
-
-        return view('perangkat', compact('perangkat'));
+    $brokenDevices = \App\Models\BrokenDevice::orderBy('broken_date', 'desc')
+                        ->get();
+    $brokenHostIds = $brokenDevices->pluck('hostid')->toArray();
+    return view('perangkat', compact('perangkat', 'brokenDevices', 'brokenHostIds'));
 
     })->name('perangkat.index');
 
@@ -999,3 +1002,9 @@ Route::get('/debug-graphitems/{graphid}', function(string $graphid) {
     ]);
     return response()->json($res->json()['result'] ?? []);
 })->middleware('auth');
+
+// routes/web.php
+Route::post('/broken-devices', [BrokenDeviceController::class, 'store'])
+     ->name('broken.store');
+Route::delete('/broken-devices/{id}', [BrokenDeviceController::class, 'destroy'])
+     ->name('broken.destroy');

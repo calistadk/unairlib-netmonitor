@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\MaintenanceSchedule;
 use App\Models\ActivityLog;
 use App\Models\Device;
+use App\Models\BrokenDevice;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Carbon\Carbon;
@@ -62,9 +63,6 @@ class MaintenanceController extends Controller
         }
     }
 
-    // ─────────────────────────────────────────────
-    //  Resolve time range dari preset atau custom
-    // ─────────────────────────────────────────────
     private function resolveTimeRange(Request $request): array
     {
         $tz     = config('app.timezone');
@@ -89,37 +87,42 @@ class MaintenanceController extends Controller
         $now = Carbon::now($tz);
 
         [$from, $to, $label] = match($preset) {
-            'today'        => [$now->copy()->startOfDay(),              $now->copy()->endOfDay(),              'Today'],
-            'yesterday'    => [$now->copy()->subDay()->startOfDay(),    $now->copy()->subDay()->endOfDay(),    'Yesterday'],
-            'last_7'       => [$now->copy()->subDays(7),                $now->copy(),                         'Last 7 days'],
-            'last_30'      => [$now->copy()->subDays(30),               $now->copy(),                         'Last 30 days'],
-            'last_3months' => [$now->copy()->subMonths(3),              $now->copy(),                         'Last 3 months'],
-            'last_6months' => [$now->copy()->subMonths(6),              $now->copy(),                         'Last 6 months'],
-            'last_year'    => [$now->copy()->subYear(),                 $now->copy(),                         'Last 1 year'],
-            'this_week'    => [$now->copy()->startOfWeek(),             $now->copy()->endOfWeek(),            'This week'],
-            'this_month'   => [$now->copy()->startOfMonth(),            $now->copy()->endOfMonth(),           'This month'],
-            'prev_week'    => [$now->copy()->subWeek()->startOfWeek(),  $now->copy()->subWeek()->endOfWeek(), 'Previous week'],
-            'prev_month'   => [$now->copy()->subMonth()->startOfMonth(),$now->copy()->subMonth()->endOfMonth(),'Previous month'],
+            'today'        => [$now->copy()->startOfDay(),               $now->copy()->endOfDay(),               'Today'],
+            'yesterday'    => [$now->copy()->subDay()->startOfDay(),     $now->copy()->subDay()->endOfDay(),     'Yesterday'],
+            'last_7'       => [$now->copy()->subDays(7),                 $now->copy(),                          'Last 7 days'],
+            'last_30'      => [$now->copy()->subDays(30),                $now->copy(),                          'Last 30 days'],
+            'last_3months' => [$now->copy()->subMonths(3),               $now->copy(),                          'Last 3 months'],
+            'last_6months' => [$now->copy()->subMonths(6),               $now->copy(),                          'Last 6 months'],
+            'last_year'    => [$now->copy()->subYear(),                  $now->copy(),                          'Last 1 year'],
+            'this_week'    => [$now->copy()->startOfWeek(),              $now->copy()->endOfWeek(),             'This week'],
+            'this_month'   => [$now->copy()->startOfMonth(),             $now->copy()->endOfMonth(),            'This month'],
+            'prev_week'    => [$now->copy()->subWeek()->startOfWeek(),   $now->copy()->subWeek()->endOfWeek(),  'Previous week'],
+            'prev_month'   => [$now->copy()->subMonth()->startOfMonth(), $now->copy()->subMonth()->endOfMonth(),'Previous month'],
             default        => [null, null, 'Active'],
         };
 
         return ['from' => $from, 'to' => $to, 'preset' => $preset, 'label' => $label];
     }
 
-    // ─────────────────────────────────────────────
-    //  INDEX
-    // ─────────────────────────────────────────────
     public function index(Request $request)
     {
         $tz         = config('app.timezone');
         $today      = Carbon::today($tz);
-        $zbxDevices = $this->getZabbixDevices();
-        $hostIds    = collect($zbxDevices)->pluck('hostid')->all();
+        $allDevices = $this->getZabbixDevices();
 
-        // ── Resolve time range ────────────────────
+        // ── Filter keluar device yang berstatus rusak ──────────────
+        $brokenHostIds = BrokenDevice::pluck('hostid')->filter()->toArray();
+        $zbxDevices    = collect($allDevices)
+            ->reject(fn($d) => in_array($d['hostid'], $brokenHostIds))
+            ->values()
+            ->all();
+
+        $hostIds = collect($zbxDevices)->pluck('hostid')->all();
+
+        // ── Resolve time range ─────────────────────────────────────
         $range = $this->resolveTimeRange($request);
 
-        // ── Ambil record maintenance terbaru per device (all-time) ──
+        // ── Last maintenance per device ────────────────────────────
         $lastMaintenanceMap = MaintenanceSchedule::with('doneBy')
             ->whereIn('device_id', $hostIds)
             ->where('is_done', true)
@@ -128,7 +131,7 @@ class MaintenanceController extends Controller
             ->groupBy('device_id')
             ->map(fn($records) => $records->first());
 
-        // ── doneTodayMap: next_maintenance masih di masa depan (logika asli) ──
+        // ── doneTodayMap ───────────────────────────────────────────
         $doneTodayMap = $lastMaintenanceMap->filter(
             fn($record) => $record->next_maintenance
                         && Carbon::parse($record->next_maintenance, $tz)->greaterThan($today)
@@ -136,9 +139,8 @@ class MaintenanceController extends Controller
 
         $doneToday = $doneTodayMap->count();
 
-        // ── doneInRangeMap: filter by range yang dipilih ──────────
+        // ── doneInRangeMap ─────────────────────────────────────────
         if ($range['preset'] === 'active') {
-            // Default: sama dengan doneTodayMap
             $doneInRangeMap = $doneTodayMap;
         } else {
             $rangeQuery = MaintenanceSchedule::with('doneBy')
@@ -164,9 +166,6 @@ class MaintenanceController extends Controller
         ));
     }
 
-    // ─────────────────────────────────────────────
-    //  STORE
-    // ─────────────────────────────────────────────
     public function store(Request $request)
     {
         $request->validate([
@@ -184,7 +183,12 @@ class MaintenanceController extends Controller
         $nextMaint    = $doneAt->copy()->addDays($intervalDays)->toDateString();
         $count        = 0;
 
+        // Jangan proses device yang sedang rusak
+        $brokenHostIds = BrokenDevice::pluck('hostid')->filter()->toArray();
+
         foreach ($request->devices as $hostId) {
+            if (in_array($hostId, $brokenHostIds)) continue;
+
             $zbxDevice  = $zbxDevices->get($hostId);
             $deviceName = $zbxDevice['host'] ?? $hostId;
 
@@ -229,9 +233,6 @@ class MaintenanceController extends Controller
         return back()->with('success', $count . ' device berhasil dicatat maintenance. Maintenance berikutnya dalam ' . $intervalDays . ' hari.');
     }
 
-    // ─────────────────────────────────────────────
-    //  DESTROY
-    // ─────────────────────────────────────────────
     public function destroy($id)
     {
         MaintenanceSchedule::findOrFail($id)->delete();
