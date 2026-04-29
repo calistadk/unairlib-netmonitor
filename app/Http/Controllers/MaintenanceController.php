@@ -111,8 +111,12 @@ class MaintenanceController extends Controller
         $allDevices = $this->getZabbixDevices();
 
         // ── Filter keluar device yang berstatus rusak ──────────────
-        $brokenHostIds = BrokenDevice::pluck('hostid')->filter()->toArray();
-        $zbxDevices    = collect($allDevices)
+        // Hanya filter hostid yang merupakan Zabbix hostid (bukan prefix 'manual-')
+        $brokenHostIds = BrokenDevice::pluck('hostid')
+            ->filter(fn($id) => $id && !str_starts_with($id, 'manual-'))
+            ->toArray();
+
+        $zbxDevices = collect($allDevices)
             ->reject(fn($d) => in_array($d['hostid'], $brokenHostIds))
             ->values()
             ->all();
@@ -184,7 +188,9 @@ class MaintenanceController extends Controller
         $count        = 0;
 
         // Jangan proses device yang sedang rusak
-        $brokenHostIds = BrokenDevice::pluck('hostid')->filter()->toArray();
+        $brokenHostIds = BrokenDevice::pluck('hostid')
+            ->filter(fn($id) => $id && !str_starts_with($id, 'manual-'))
+            ->toArray();
 
         foreach ($request->devices as $hostId) {
             if (in_array($hostId, $brokenHostIds)) continue;

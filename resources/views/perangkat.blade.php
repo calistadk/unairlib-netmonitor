@@ -48,12 +48,19 @@
      =============================================================== -->
 <div id="panel-active">
 
-    <!-- SEARCH, FILTER, EXPORT, ADD — satu baris -->
+    <!-- SEARCH, FILTER, EXPORT, ADD -->
     <div class="flex items-center gap-2 mb-6 flex-wrap">
-
-        <input type="text" id="searchDevice" placeholder="Search" onkeyup="filterDevice()"
-            class="px-4 py-2 border border-gray-300 rounded-lg text-sm w-56
-                   focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"/>
+        
+        <div class="relative">
+    <input type="text" id="searchDevice" placeholder="Search device..." onkeyup="filterDevice()"
+        class="pl-8 pr-4 py-2 border border-gray-300 rounded-lg text-sm w-56
+               focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"/>
+    <svg class="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" fill="none"
+         viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+    </svg>
+</div>
 
         <select id="filterStatus" onchange="filterDevice()"
             class="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm
@@ -168,7 +175,7 @@
                         </button>
                         <button onclick="confirmDelete('{{ $item['hostid'] }}', '{{ addslashes($item['host']) }}')"
                             class="text-red-600 border border-red-300 text-xs px-3 py-2 rounded-lg hover:bg-red-50 transition">
-                            Hapus
+                            Delete
                         </button>
                     </div>
                 </td>
@@ -198,9 +205,16 @@
 
     <!-- Search broken -->
     <div class="flex items-center gap-2 mb-6 flex-wrap">
-    <input type="text" id="searchBroken" placeholder="Search broken device..." onkeyup="filterBroken()"
-        class="px-4 py-2 border border-gray-300 rounded-lg text-sm w-64
-               focus:outline-none focus:ring-2 focus:ring-red-300 bg-white"/>
+    <div class="relative">
+        <input type="text" id="searchBroken" placeholder="Search broken device..." onkeyup="filterBroken()"
+            class="pl-8 pr-4 py-2 border border-gray-300 rounded-lg text-sm w-64
+                   focus:outline-none focus:ring-2 focus:ring-red-300 bg-white"/>
+        <svg class="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" fill="none"
+             viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+    </div>
 
     <select id="filterBrokenGroup" onchange="filterBroken()"
         class="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm
@@ -243,8 +257,8 @@
                 <th class="px-6 py-4 text-left">Device Name</th>
                 <th class="px-6 py-4 text-left">IP Address</th>
                 <th class="px-6 py-4 text-left">Group</th>
-                <th class="px-6 py-4 text-left">Alasan Rusak</th>
-                <th class="px-6 py-4 text-left">Tanggal Rusak</th>
+                <th class="px-6 py-4 text-left">Reason for Damage</th>
+                <th class="px-6 py-4 text-left">Date Broken</th>
             </tr>
         </thead>
         <tbody id="brokenBody" class="divide-y divide-gray-200">
@@ -261,7 +275,7 @@
                 @if(auth()->user()->isAdmin())
                 <td class="px-6 py-4">
                     <form action="{{ route('broken.destroy', $b->id) }}" method="POST"
-                          onsubmit="return confirm('Pulihkan device {{ addslashes($b->host_name) }} dari daftar rusak?')">
+                          onsubmit="return confirm('Restore device {{ addslashes($b->host_name) }} from the broken list?')">
                         @csrf @method('DELETE')
                         <button type="submit"
                             class="text-green-600 border border-green-300 text-xs px-3 py-2
@@ -276,7 +290,7 @@
             <tr>
                 <td colspan="{{ auth()->user()->isAdmin() ? 6 : 5 }}"
                     class="px-6 py-12 text-center text-gray-400">
-                    Tidak ada device yang tercatat rusak.
+                    No broken devices recorded.
                 </td>
             </tr>
             @endforelse
@@ -290,7 +304,7 @@
 
 
 <!-- ===================================================================
-     MODAL TANDAI RUSAK  (admin only)
+     MODAL: MARK AS BROKEN  (admin only)
      =================================================================== -->
 @if(auth()->user()->isAdmin())
 <div id="brokenModal"
@@ -299,7 +313,7 @@
 
         <div class="flex items-center justify-between mb-5">
             <div>
-                <h3 class="text-lg font-bold text-[#243B7C]">Tandai Device Rusak</h3>
+                <h3 class="text-lg font-bold text-[#243B7C]">Mark Device as Broken</h3>
                 <p id="brokenModalSubtitle" class="text-xs text-gray-400 mt-0.5"></p>
             </div>
             <button onclick="closeBrokenModal()"
@@ -325,17 +339,17 @@
 
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-1">
-                    Alasan Rusak <span class="text-red-500">*</span>
+                    Reason for Damage <span class="text-red-500">*</span>
                 </label>
                 <textarea name="reason" rows="3" required
                     class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm
                            focus:outline-none focus:ring-2 focus:ring-orange-300 resize-none"
-                    placeholder="e.g. PSU terbakar, tidak dapat diperbaiki..."></textarea>
+                    placeholder="e.g. PSU burned out, cannot be repaired..."></textarea>
             </div>
 
             <div class="mb-6">
                 <label class="block text-sm font-medium text-gray-700 mb-1">
-                    Tanggal Rusak <span class="text-red-500">*</span>
+                    Date Broken <span class="text-red-500">*</span>
                 </label>
                 <input type="date" name="broken_date" required
                     value="{{ date('Y-m-d') }}"
@@ -347,12 +361,12 @@
                 <button type="button" onclick="closeBrokenModal()"
                     class="px-5 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold
                            hover:bg-gray-300 text-sm">
-                    Batal
+                    Cancel
                 </button>
                 <button type="submit"
                     class="px-5 py-2 rounded-lg bg-orange-500 text-white font-semibold
                            hover:bg-orange-600 text-sm transition">
-                    Tandai Rusak
+                    Mark as Broken
                 </button>
             </div>
         </form>
@@ -365,8 +379,8 @@
 
         <div class="flex items-center justify-between mb-5">
             <div>
-                <h3 class="text-lg font-bold text-[#243B7C]">Tambah Device Rusak</h3>
-                <p class="text-xs text-gray-400 mt-0.5">Daftarkan perangkat rusak secara manual</p>
+                <h3 class="text-lg font-bold text-[#243B7C]">Add Broken Device</h3>
+                <p class="text-xs text-gray-400 mt-0.5">Manually register a broken device</p>
             </div>
             <button onclick="closeAddBrokenModal()"
                 class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
@@ -414,17 +428,17 @@
 
             <div class="mb-3">
                 <label class="block text-sm font-medium text-gray-700 mb-1">
-                    Alasan Rusak <span class="text-red-500">*</span>
+                    Reason for Damage <span class="text-red-500">*</span>
                 </label>
                 <textarea name="reason" rows="2" required
                     class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm
                            focus:outline-none focus:ring-2 focus:ring-orange-300 resize-none"
-                    placeholder="e.g. PSU terbakar, tidak dapat diperbaiki..."></textarea>
+                    placeholder="e.g. PSU burned out, cannot be repaired..."></textarea>
             </div>
 
             <div class="mb-6">
                 <label class="block text-sm font-medium text-gray-700 mb-1">
-                    Tanggal Rusak <span class="text-red-500">*</span>
+                    Date Broken <span class="text-red-500">*</span>
                 </label>
                 <input type="date" name="broken_date" required
                     value="{{ date('Y-m-d') }}"
@@ -436,12 +450,12 @@
                 <button type="button" onclick="closeAddBrokenModal()"
                     class="px-5 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold
                            hover:bg-gray-300 text-sm">
-                    Batal
+                    Cancel
                 </button>
                 <button type="submit"
                     class="px-5 py-2 rounded-lg bg-orange-500 text-white font-semibold
                            hover:bg-orange-600 text-sm transition">
-                    Simpan
+                    Save
                 </button>
             </div>
         </form>
@@ -453,7 +467,7 @@
 @if(auth()->user()->isAdmin())
 
 <!-- ===================================================================
-     MODAL DETAIL
+     MODAL: DETAIL
      =================================================================== -->
 <div id="detailModal"
      class="fixed inset-0 bg-black bg-opacity-20 backdrop-blur-[2px] z-50 hidden flex items-center justify-center">
@@ -486,7 +500,7 @@
 </div>
 
 <!-- ===================================================================
-     MODAL EDIT ZABBIX
+     MODAL: EDIT ZABBIX HOST
      =================================================================== -->
 <div id="editZabbixModal"
      class="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-[2px] z-[60] hidden flex items-center justify-center">
@@ -494,7 +508,7 @@
 
         <div class="flex items-center justify-between mb-6">
             <div>
-                <h3 class="text-xl font-bold text-[#243B7C]">Edit Host Zabbix</h3>
+                <h3 class="text-xl font-bold text-[#243B7C]">Edit Zabbix Host</h3>
                 <p id="editZabbixSubtitle" class="text-xs text-gray-400 mt-0.5"></p>
             </div>
             <button onclick="closeEditZabbix()"
@@ -506,7 +520,7 @@
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
             </svg>
-            Mengambil data dari Zabbix...
+            Fetching data from Zabbix...
         </div>
 
         <form id="editZabbixForm" action="" method="POST" class="hidden">
@@ -560,14 +574,14 @@
             <div class="flex justify-end gap-3 mt-6">
                 <button type="button" onclick="closeEditZabbix()"
                     class="px-5 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 text-sm">
-                    Batal
+                    Cancel
                 </button>
                 <button type="submit"
                     class="px-5 py-2 rounded-lg bg-[#243B7C] text-white font-semibold hover:bg-blue-800 text-sm flex items-center gap-2 transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
                     </svg>
-                    Simpan Perubahan
+                    Save Changes
                 </button>
             </div>
         </form>
@@ -575,7 +589,7 @@
 </div>
 
 <!-- ===================================================================
-     MODAL KONFIRMASI HAPUS
+     MODAL: DELETE CONFIRMATION
      =================================================================== -->
 <div id="deleteModal"
      class="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-[2px] z-50 hidden flex items-center justify-center">
@@ -589,12 +603,12 @@
                 </svg>
             </div>
         </div>
-        <h3 class="text-lg font-bold text-gray-800 text-center mb-1">Hapus Host?</h3>
-        <p class="text-sm text-gray-500 text-center mb-1">Kamu akan menghapus:</p>
+        <h3 class="text-lg font-bold text-gray-800 text-center mb-1">Delete Host?</h3>
+        <p class="text-sm text-gray-500 text-center mb-1">You are about to delete:</p>
         <p id="deleteHostName" class="text-center font-semibold text-[#243B7C] mb-2"></p>
         <p class="text-xs text-red-500 text-center mb-6">
-            Host akan dihapus permanen dari <strong>Zabbix</strong> dan <strong>database lokal</strong>.
-            Tindakan ini tidak bisa dibatalkan.
+            The host will be permanently deleted from <strong>Zabbix</strong> and the <strong>local database</strong>.
+            This action cannot be undone.
         </p>
         <form id="deleteForm" method="POST">
             @csrf
@@ -603,7 +617,7 @@
         <div class="flex gap-3">
             <button type="button" onclick="closeDelete()"
                 class="flex-1 px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 text-sm">
-                Batal
+                Cancel
             </button>
             <button type="button" onclick="submitDelete()"
                 class="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 text-sm flex items-center justify-center gap-2">
@@ -611,14 +625,14 @@
                     <path stroke-linecap="round" stroke-linejoin="round"
                           d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7"/>
                 </svg>
-                Ya, Hapus
+                Yes, Delete
             </button>
         </div>
     </div>
 </div>
 
 <!-- ===================================================================
-     MODAL ADD TO ZABBIX
+     MODAL: ADD HOST TO ZABBIX
      =================================================================== -->
 <div id="addZabbixModal"
      class="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-[2px] z-50 hidden flex items-center justify-center">
@@ -626,7 +640,7 @@
         <div class="flex items-center justify-between mb-6">
             <div>
                 <h3 class="text-xl font-bold text-[#243B7C]">Add Host to Zabbix</h3>
-                <p class="text-xs text-gray-400 mt-0.5">Daftarkan perangkat baru ke monitoring Zabbix</p>
+                <p class="text-xs text-gray-400 mt-0.5">Register a new device to Zabbix monitoring</p>
             </div>
             <button onclick="closeAddZabbix()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
         </div>
@@ -699,7 +713,7 @@
 
 
 <!-- ===================================================================
-     MODAL EXPORT EXCEL  (active devices)
+     MODAL: EXPORT EXCEL  (active devices)
      =================================================================== -->
 <div id="exportModal"
      class="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-[2px] z-50 hidden flex items-center justify-center">
@@ -741,7 +755,7 @@
         <div class="flex justify-end gap-3 mt-2">
             <button onclick="closeExportModal()"
                 class="px-5 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 text-sm">
-                Batal
+                Cancel
             </button>
             <button onclick="doExport()"
                 class="flex items-center gap-2 px-5 py-2 rounded-lg bg-green-600 text-white
@@ -868,7 +882,7 @@ function doExport() {
     const wantBroken = document.getElementById('exportBroken')?.checked;
 
     if (selected.length === 0 && !wantBroken) {
-        alert('Pilih minimal satu group atau centang Broken Devices untuk diekspor.');
+        alert('Please select at least one group or check Broken Devices to export.');
         return;
     }
 
@@ -905,7 +919,7 @@ function doExport() {
     const wb   = XLSX.utils.book_new();
     const date = new Date().toISOString().slice(0, 10);
 
-    // Sheet per group aktif
+    // Sheet per active group
     selected.forEach(group => {
         const rows = buildActiveRows(group);
         if (rows.length <= 1) return;
@@ -918,7 +932,7 @@ function doExport() {
     // Sheet broken devices
     if (wantBroken) {
         const brokenHeaders = ['No.', 'Device Name', 'IP Address', 'Group',
-                               'Alasan Rusak', 'Tanggal Rusak', 'Dilaporkan Oleh'];
+                               'Reason for Damage', 'Date Broken', 'Reported By'];
         const brokenData = [brokenHeaders];
         let no = 1;
         document.querySelectorAll('.broken-row').forEach(row => {
@@ -942,7 +956,7 @@ function doExport() {
     }
 
     if (!wb.SheetNames.length) {
-        alert('Tidak ada data pada pilihan yang dipilih.');
+        alert('No data found for the selected options.');
         return;
     }
 
@@ -961,10 +975,10 @@ function doExport() {
     closeExportModal();
 }
 
-// ── Export Broken (langsung download, tanpa modal) ─────────
+// ── Export Broken (direct download, no modal) ──────────────
 function exportBroken() {
     const headers  = ['No.', 'Device Name', 'IP Address', 'Group',
-                      'Alasan Rusak', 'Tanggal Rusak', 'Dilaporkan Oleh'];
+                      'Reason for Damage', 'Date Broken', 'Reported By'];
     const data     = [headers];
     let no         = 1;
 
@@ -984,7 +998,7 @@ function exportBroken() {
     });
 
     if (data.length <= 1) {
-        alert('Tidak ada data broken device untuk diekspor.');
+        alert('No broken device data available to export.');
         return;
     }
 
@@ -1056,7 +1070,7 @@ document.getElementById('detailModal').addEventListener('click', e => {
 async function openEditZabbix() {
     if (!currentDevice) return;
     const hostid = currentDevice.hostid;
-    document.getElementById('editZabbixSubtitle').textContent = 'Mengedit: ' + currentDevice.host;
+    document.getElementById('editZabbixSubtitle').textContent = 'Editing: ' + currentDevice.host;
     document.getElementById('editZabbixForm').action = '{{ url("/zabbix/host") }}/' + hostid;
     document.getElementById('editZabbixModal').classList.remove('hidden');
     document.getElementById('editZabbixLoading').classList.remove('hidden');
@@ -1080,14 +1094,14 @@ async function openEditZabbix() {
         document.getElementById('editZabbixForm').classList.remove('hidden');
     } catch (err) {
         document.getElementById('editZabbixLoading').innerHTML =
-            '<p class="text-red-500">Gagal memuat data: ' + err.message + '</p>';
+            '<p class="text-red-500">Failed to load data: ' + err.message + '</p>';
     }
 }
 
 function populateEditDropdowns(options, hostData) {
     const groupSel = document.getElementById('edit_group');
     const activeGroupIds = (hostData.groups ?? []).map(g => g.groupid);
-    groupSel.innerHTML = '<option value="">-- Pilih group --</option>';
+    groupSel.innerHTML = '<option value="">-- Select group --</option>';
     (options.groups ?? []).forEach(g => {
         const opt = document.createElement('option');
         opt.value = g.groupid; opt.textContent = g.name;
@@ -1144,12 +1158,12 @@ async function loadZabbixOptions() {
         zabbixOptions = await res.json();
         repopulateAddDropdowns();
     } catch (err) {
-        document.getElementById('zbx_group').innerHTML = '<option value="">Gagal memuat groups</option>';
+        document.getElementById('zbx_group').innerHTML = '<option value="">Failed to load groups</option>';
     }
 }
 function repopulateAddDropdowns() {
     const groupSel = document.getElementById('zbx_group');
-    groupSel.innerHTML = '<option value="">-- Pilih group --</option>';
+    groupSel.innerHTML = '<option value="">-- Select group --</option>';
     (zabbixOptions.groups ?? []).forEach(g => {
         const opt = document.createElement('option');
         opt.value = g.groupid; opt.textContent = g.name;

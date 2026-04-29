@@ -403,7 +403,7 @@
                             @endif
                         </td>
 
-                        <!-- Action: Tandai Rusak (admin only) -->
+                        <!-- Action: Mark as Broken (admin only) -->
                         @if(auth()->user()->isAdmin())
                         <td class="px-6 py-3 whitespace-nowrap">
                             <button type="button"
@@ -414,7 +414,7 @@
                                     '{{ addslashes($device['groups'] ?? '') }}')"
                                 class="text-orange-500 border border-orange-300 text-xs px-3 py-2
                                        rounded-lg hover:bg-orange-50 transition whitespace-nowrap">
-                                Rusak
+                                Broken
                             </button>
                         </td>
                         @endif
@@ -465,7 +465,7 @@
 
 
 <!-- ===================================================================
-     MODAL TANDAI RUSAK  (admin only)
+     MODAL: MARK AS BROKEN  (admin only)
      =================================================================== -->
 @if(auth()->user()->isAdmin())
 <div id="brokenModal"
@@ -474,7 +474,7 @@
 
         <div class="flex items-center justify-between mb-4">
             <div>
-                <h3 class="text-lg font-bold text-[#243B7C]">Tandai Device Rusak</h3>
+                <h3 class="text-lg font-bold text-[#243B7C]">Mark Device as Broken</h3>
                 <p id="brokenModalSubtitle" class="text-xs text-gray-400 mt-0.5"></p>
             </div>
             <button onclick="closeBrokenModal()"
@@ -500,17 +500,17 @@
 
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-1">
-                    Alasan Rusak <span class="text-red-500">*</span>
+                    Reason for Damage <span class="text-red-500">*</span>
                 </label>
                 <textarea name="reason" rows="3" required
                     class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm
                            focus:outline-none focus:ring-2 focus:ring-orange-300 resize-none"
-                    placeholder="e.g. PSU terbakar, tidak dapat diperbaiki..."></textarea>
+                    placeholder="e.g. PSU burned out, cannot be repaired..."></textarea>
             </div>
 
             <div class="mb-6">
                 <label class="block text-sm font-medium text-gray-700 mb-1">
-                    Tanggal Rusak <span class="text-red-500">*</span>
+                    Date Broken <span class="text-red-500">*</span>
                 </label>
                 <input type="date" name="broken_date" required
                     value="{{ date('Y-m-d') }}"
@@ -522,12 +522,12 @@
                 <button type="button" onclick="closeBrokenModal()"
                     class="px-5 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold
                            hover:bg-gray-300 text-sm">
-                    Batal
+                    Cancel
                 </button>
                 <button type="submit"
                     class="px-5 py-2 rounded-lg bg-orange-500 text-white font-semibold
                            hover:bg-orange-600 text-sm transition">
-                    Tandai Rusak
+                    Mark as Broken
                 </button>
             </div>
         </form>
@@ -894,7 +894,7 @@ function updateNextMaintPreview(days) {
     if (!d || d < 1) { nextMaintPreview.textContent = 'Next: —'; return; }
     const next = new Date();
     next.setDate(next.getDate() + d);
-    nextMaintPreview.textContent = 'Next: ' + next.toLocaleDateString('id-ID', {
+    nextMaintPreview.textContent = 'Next: ' + next.toLocaleDateString('en-GB', {
         day: '2-digit', month: 'short', year: 'numeric'
     });
 }

@@ -556,7 +556,6 @@ Route::middleware('auth')->group(function () {
         try {
             $timeFrom = time() - $period;
 
-            // Cek value type item (0=float, 3=uint)
             $itemRes = Http::timeout(5)->post(ZABBIX_API, [
                 "jsonrpc" => "2.0",
                 "method"  => "item.get",
@@ -588,7 +587,6 @@ Route::middleware('auth')->group(function () {
 
             $history = $histRes->json()['result'] ?? [];
 
-            // Format untuk Chart.js: {x: timestamp_ms, y: value}
             $formatted = array_map(fn($d) => [
                 'x' => (int) $d['clock'] * 1000,
                 'y' => round((float) $d['value']),
@@ -665,8 +663,19 @@ Route::middleware('auth')->group(function () {
 
         $auth = getZabbixToken();
 
+        // Ambil daftar broken devices (hanya Zabbix hostid, bukan manual)
+        $brokenDevices = \App\Models\BrokenDevice::orderBy('broken_date', 'desc')->get();
+        $brokenHostIds = $brokenDevices
+            ->pluck('hostid')
+            ->filter(fn($id) => $id && !str_starts_with($id, 'manual-'))
+            ->toArray();
+
         if (!$auth) {
-            return view('perangkat', ['perangkat' => []]);
+            return view('perangkat', [
+                'perangkat'      => [],
+                'brokenDevices'  => $brokenDevices,
+                'brokenHostIds'  => $brokenHostIds,
+            ]);
         }
 
         $res = Http::post(ZABBIX_API, [
@@ -687,6 +696,11 @@ Route::middleware('auth')->group(function () {
         $perangkat = [];
 
         foreach ($zbxHosts as $h) {
+            // ── Lewati device yang sedang ditandai rusak ──────────
+            if (in_array($h['hostid'], $brokenHostIds)) {
+                continue;
+            }
+
             $iface  = $h['interfaces'][0] ?? [];
             $avail  = $iface['available'] ?? 0;
             $inv    = is_array($h['inventory']) ? $h['inventory'] : [];
@@ -723,10 +737,8 @@ Route::middleware('auth')->group(function () {
                 'notes'      => $inv['notes'] ?? '',
             ];
         }
-    $brokenDevices = \App\Models\BrokenDevice::orderBy('broken_date', 'desc')
-                        ->get();
-    $brokenHostIds = $brokenDevices->pluck('hostid')->toArray();
-    return view('perangkat', compact('perangkat', 'brokenDevices', 'brokenHostIds'));
+
+        return view('perangkat', compact('perangkat', 'brokenDevices', 'brokenHostIds'));
 
     })->name('perangkat.index');
 
@@ -926,6 +938,8 @@ Route::middleware('auth')->group(function () {
         })->name('zabbix.host.destroy');
     });
 });
+
+// ── DEBUG ROUTES ───────────────────────────────────────────────────────────
 Route::get('/debug-hosts', function() {
     $auth = getZabbixToken();
     $res = Http::post(ZABBIX_API, [
@@ -1003,8 +1017,6 @@ Route::get('/debug-graphitems/{graphid}', function(string $graphid) {
     return response()->json($res->json()['result'] ?? []);
 })->middleware('auth');
 
-// routes/web.php
-Route::post('/broken-devices', [BrokenDeviceController::class, 'store'])
-     ->name('broken.store');
-Route::delete('/broken-devices/{id}', [BrokenDeviceController::class, 'destroy'])
-     ->name('broken.destroy');
+// ── BROKEN DEVICES ─────────────────────────────────────────────────────────
+Route::post('/broken-devices',        [BrokenDeviceController::class, 'store'])  ->name('broken.store');
+Route::delete('/broken-devices/{id}', [BrokenDeviceController::class, 'destroy'])->name('broken.destroy');
